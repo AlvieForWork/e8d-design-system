@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 忘記密碼／找回帳號 — 提案</title>
+<link rel="stylesheet" href="auth-tokens.css">
+<style>
+
+  /* ---------- 左側：資安意象 ---------- */
+  /* ---- 會飄動的光暈 ---- */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 時間全部由 JSON 的 speed:28 推算：28s 為基準，另外兩團錯開成 36s / 44s */
+
+  /* 使用者若在系統開了「減少動態效果」，就自動停下來 */
+
+  /* 顆粒質感：用 SVG 濾鏡即時產生，取代原本 45KB 的 base64 貼圖 */
+  /* 用彈性空白撐開版面比例，跟著面板高度縮放，不寫死 px。
+     比例 1 : 2.2 : 2.1（頂→logo、logo→標語、標語→底），量自參考版型：
+     logo 落在約 18% 高度、標語落在約 50%，底部留最大一片空白 */
+  /* 標題全白，橘色留給右邊的登入按鈕當唯一焦點 */
+
+  /* ---------- 右側：卡片 ---------- */
+
+  /* ---- 步驟指示器：規格與「2FA 綁定引導」完全一致 ----
+     節點撐開、連接線 flex:1 拉滿卡片寬；圓點 28px、字 13px；
+     只用兩種顏色：主色橘（當前＋已完成）＋ 中性灰（未進行） */
+
+  /* 已完成的圓圈顯示打勾、隱藏數字 */
+
+  /* ---- pane 切換 ---- */
+  .pane { display: none; }
+  .pane.show { display: block; }
+  /* 標題後面若沒有副標（直接接輸入區），要補回副標原本佔的那段間距，
+     否則標題會貼著欄位。例：步驟 2 沒有副標。
+     用 .pane > h1 限定只作用在表單型畫面 —— 結果頁的標題與說明本來就是一組，
+     不可被拉開（那裡的 h1 掛在 .result-hero 底下，不是 .pane 的直接子層） */
+  .auth-card .pane > h1 + :not(.subtitle) { margin-top: var(--space-xl); }
+  .subtitle-tight { margin-bottom: var(--space-md) !important; }
+  /* 這頁副標用 subtitle-tight（12px），帳號框的下間距跟著對稱成 12px。
+     token 檔的預設是 16px，對應一般副標的 24px 上間距 */
+  .info-box + :not(.info-box) { margin-top: var(--space-md); }
+
+  /* ---- Floating label 欄位 ---- */
+
+  /* ---- 驗證碼（沿用登入頁，常駐顯示） ---- */
+  .captcha-field {
+    display: flex; align-items: center;
+    height: 56px;
+    padding-right: var(--space-sm);
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-field);
+    margin-bottom: var(--space-md);
+    transition: box-shadow .12s ease, border-color .12s ease;
+  }
+  .captcha-field:focus-within { border-color: var(--border-focus); box-shadow: var(--focus-ring); }
+  .captcha-field.is-error { border-color: var(--border-error); }
+  .captcha-field.is-error:focus-within { box-shadow: var(--error-ring); }
+  .captcha-field .field-float { flex: 1; margin-bottom: 0; height: 100%; }
+  .captcha-field .field-float input { height: 100%; border: none; background: transparent; }
+  .captcha-field .field-float input:focus { border: none; box-shadow: none; }
+
+  .captcha-graphic {
+    position: relative;
+    flex: 0 0 88px; height: 36px;
+    margin-right: var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-default);
+    background-color: var(--neutral-100);
+    background-image:
+      radial-gradient(circle at 12% 30%, rgba(120,110,100,.45) 1px, transparent 1.2px),
+      radial-gradient(circle at 38% 75%, rgba(120,110,100,.4) 1px, transparent 1.2px),
+      radial-gradient(circle at 62% 20%, rgba(120,110,100,.45) 1px, transparent 1.2px),
+      radial-gradient(circle at 82% 65%, rgba(120,110,100,.4) 1px, transparent 1.2px),
+      radial-gradient(circle at 25% 55%, rgba(120,110,100,.35) 1px, transparent 1.2px),
+      radial-gradient(circle at 70% 45%, rgba(120,110,100,.4) 1px, transparent 1.2px);
+    background-size: 7px 7px, 9px 9px, 6px 6px, 8px 8px, 7px 7px, 10px 10px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .captcha-graphic::after {
+    content: "";
+    position: absolute; left: 6%; right: 6%; top: 50%;
+    height: 1px; background: rgba(90,80,72,.35);
+    transform: rotate(-4deg);
+  }
+  .captcha-text {
+    position: relative; z-index: 1;
+    display: inline-flex; gap: 2px;
+    font-size: 17px; font-weight: 700; letter-spacing: 1px;
+    color: var(--neutral-700); user-select: none;
+  }
+  .captcha-refresh {
+    flex: 0 0 32px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-brand); cursor: pointer;
+    transition: background .12s ease;
+  }
+  /* icon 是橘的，hover 配淺橘底（color/bg/brand-hover） */
+  .captcha-refresh:hover  { background: var(--bg-brand-hover); }
+  .captcha-refresh:active { background: var(--bg-brand-pressed); }
+
+  /* ---- 6 格驗證碼 ---- */
+  @media (prefers-reduced-motion: reduce) { .otp-row.is-error { animation: none; } }
+
+  /* ---- 訊息 ---- */
+
+  /* ---- 重新發送 ---- */
+
+  /* ---- 帳號顯示（忘記帳號的人要的東西） ---- */
+  /* 用中性灰底不用主色：橘色留給主按鈕當唯一焦點，但帳號值本身放大加粗好讀 */
+
+  /* ---- 密碼規則檢核清單 ---- */
+  /* SafeSay 完全沒有這個，使用者只能猜規則；
+     樣式已於 2026-07-31 搬進 auth-tokens.css（強制變更密碼頁共用） */
+
+  /* ---- 按鈕 ---- */
+
+  /* 結果頁（完成／逾時／阻斷）樣式全部來自 auth-tokens.css，
+     這頁不再自訂 —— error 紅變體已於 2026-07-30 收進 token 檔 */</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- 左側：品牌區（所有登入前頁面共用同一份） -->
+  <div class="visual-panel">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="visual-spacer-top" aria-hidden="true"></div>
+    <img class="visual-logo" src="logo_every8d_dark.svg" alt="EVERY8D">
+    <div class="visual-spacer-mid" aria-hidden="true"></div>
+    <div class="visual-copy">
+      <h1 class="visual-heading">每一次登入，<br>都經過<em>多重防護</em>驗證</h1>
+      <p class="visual-sub">帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+    </div>
+    <div class="visual-spacer-bottom" aria-hidden="true"></div>
+  </div>
+
+  <!-- 右側：卡片 -->
+  <div class="form-panel">
+    <div class="auth-card">
+
+      <!-- 步驟指示器：結構與「2FA 綁定引導」相同（.step 包圓點＋文字標籤）。
+           標籤取自各步驟的頁面標題，但 400px 卡片放不下完整標題（線會被擠到看不見），
+           三個都用簡短版：找回帳號與密碼→手機、輸入驗證碼→驗證碼、設定新密碼→新密碼。
+           「手機」而非「手機號碼」也避免跟下方欄位 label 重複 -->
+      <div class="steps" id="steps">
+        <div class="step current" data-step="1">
+          <span class="step-dot">
+            <span class="num">1</span>
+            <svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">手機</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" data-step="2">
+          <span class="step-dot">
+            <span class="num">2</span>
+            <svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">驗證碼</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" data-step="3">
+          <span class="step-dot">
+            <span class="num">3</span>
+            <svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">新密碼</span>
+        </div>
+      </div>
+
+      <!-- ========== Step 1：輸入手機號 ========== -->
+      <div class="pane show" id="pane1">
+        <h1>找回帳號與密碼</h1>
+        <p class="subtitle">輸入您帳號綁定的手機號碼，驗證後即可取得帳號並重設密碼。</p>
+
+        <div class="field-float" id="phoneField">
+          <input id="phone" type="tel" inputmode="numeric" placeholder=" " autocomplete="tel" maxlength="10">
+          <label for="phone">手機號碼</label>
+        </div>
+
+        <!-- 手機號自己的錯誤訊息：緊接手機欄下方，跟驗證碼的訊息各自獨立，不共用同一槽 -->
+        <div class="msg" id="msg1Phone">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="msg1PhoneText"></span>
+        </div>
+
+        <!-- 圖形驗證碼常駐：忘記密碼會觸發真的簡訊，不設閘門等於開放別人幫我們燒錢 -->
+        <div class="captcha-field" id="captchaField">
+          <div class="field-float">
+            <input id="captcha" type="text" placeholder=" " autocomplete="off" maxlength="4">
+            <label for="captcha">請輸入驗證碼</label>
+          </div>
+          <div class="captcha-graphic">
+            <span class="captcha-text" id="captchaText1">
+              <span style="transform:rotate(-8deg)">H</span><span style="transform:rotate(5deg)">7</span><span style="transform:rotate(-4deg)">R</span><span style="transform:rotate(7deg)">M</span>
+            </span>
+          </div>
+          <button type="button" class="captcha-refresh" title="更新驗證碼">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 圖形驗證碼自己的錯誤訊息：不涉及身分可以明確講，跟手機的訊息分開，不合併成一條 -->
+        <div class="msg" id="msg1Captcha">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="msg1CaptchaText"></span>
+        </div>
+
+        <button class="btn btn-primary" id="sendBtn" style="margin-top:var(--space-lg)"><span id="sendLabel">發送驗證碼</span></button>
+
+        <div class="footer-divider"></div>
+        <p class="footer-links">
+          <a href="#" id="backToLogin1">返回登入</a>
+        </p>
+      </div>
+
+      <!-- ========== Step 2：簡訊驗證碼 ========== -->
+      <div class="pane" id="pane2">
+
+        <h1>輸入驗證碼</h1>
+
+        <div class="otp-row" id="otpRow">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 1 碼">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 2 碼">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 3 碼">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 4 碼">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 5 碼">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 6 碼">
+        </div>
+
+        <div class="msg" id="msg2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="msg2Text"></span>
+        </div>
+
+        <div class="resend-row" id="resendRow"></div>
+
+        <button class="btn btn-primary" id="verifyBtn" disabled><span id="verifyLabel">驗證</span></button>
+
+        <div class="footer-divider"></div>
+        <p class="footer-links">
+          <a href="#" id="backToLogin2">返回登入</a>
+        </p>
+      </div>
+
+      <!-- ========== Step 3：帳號 + 設定新密碼 ========== -->
+      <div class="pane" id="pane3">
+        <h1>設定新密碼</h1>
+        <!-- 副標只交代前一步的結果，不重複講「帳號」——那件事交給下方欄位的 label -->
+        <p class="subtitle subtitle-tight">已完成手機驗證。</p>
+
+        <!-- 忘記帳號的人要的東西就在這裡：帳號值放大加粗，但底色用中性灰，橘色留給主按鈕 -->
+        <div class="info-box">
+          <span class="ico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+          <span>
+            <span class="cap">您的帳號</span>
+            <span class="val">emma</span>
+          </span>
+        </div>
+
+        <div class="field-float" id="pwField">
+          <input id="pw" class="has-icon" type="password" placeholder=" " autocomplete="new-password">
+          <label for="pw">新密碼</label>
+          <span class="eye-toggle" data-target="pw">
+            <svg class="eye-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/>
+              <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/>
+              <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/>
+              <path d="m2 2 20 20"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="field-float" id="pw2Field">
+          <input id="pw2" class="has-icon" type="password" placeholder=" " autocomplete="new-password">
+          <label for="pw2">確認新密碼</label>
+          <span class="eye-toggle" data-target="pw2">
+            <svg class="eye-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/>
+              <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/>
+              <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/>
+              <path d="m2 2 20 20"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="msg" id="msg3">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="msg3Text"></span>
+        </div>
+
+        <!-- 規則檢核清單：SafeSay 沒做這個，使用者只能猜規則後被退件 -->
+        <ul class="rules" id="rules">
+          <li data-rule="len">
+            <span class="dot">
+              <svg class="circle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>
+              <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+            至少 8 個字元
+          </li>
+          <li data-rule="alpha">
+            <span class="dot">
+              <svg class="circle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>
+              <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+            包含英文字母
+          </li>
+          <li data-rule="num">
+            <span class="dot">
+              <svg class="circle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>
+              <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+            包含數字
+          </li>
+        </ul>
+
+        <button class="btn btn-primary" id="submitBtn" disabled><span id="submitLabel">更新密碼</span></button>
+      </div>
+
+      <!-- ========== Step 4：完成 ／ 逾時 ========== -->
+      <div class="pane" id="pane4">
+        <div class="result-hero" id="resultHero">
+          <div class="circle" id="resultCircle">
+            <svg id="iconDone" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg id="iconWarn" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+            </svg>
+            <!-- 阻斷狀態：帳號權限已關閉／非母帳號 -->
+            <svg id="iconBlock" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+          </div>
+          <h1 id="resultTitle">密碼已更新</h1>
+          <p id="resultDesc"></p>
+        </div>
+
+        <button class="btn btn-primary" id="resultBtn" style="margin-top:var(--space-lg)"><span id="resultBtnLabel">前往登入</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- demo 狀態列（正式產品不會有） -->
+<div class="state-bar">
+  <span class="tag">① 手機</span>
+  <button data-state="s1" class="active">預設</button>
+  <button data-state="s1-format">格式錯誤</button>
+  <button data-state="s1-captcha">驗證碼錯誤</button>
+  <button data-state="s1-both">兩者都錯</button>
+  <span class="sep"></span>
+  <span class="tag">② 驗證碼</span>
+  <button data-state="s2">輸入中</button>
+  <button data-state="s2-error">驗證失敗</button>
+  <button data-state="s2-locked">錯誤達上限</button>
+  <button data-state="s2-daily">簡訊已達上限</button>
+  <button data-state="s2-disabled">通過後：權限已關閉</button>
+  <button data-state="s2-notowner">通過後：非母帳號</button>
+  <span class="sep"></span>
+  <span class="tag">③ 新密碼</span>
+  <button data-state="s3">預設</button>
+  <button data-state="s3-mismatch">兩次不一致</button>
+  <span class="sep"></span>
+  <span class="tag">④ 結果</span>
+  <button data-state="s4">完成</button>
+  <button data-state="s4-expired">已逾時</button>
+</div>
+
+<script>
+(function () {
+  /* ---------- 元素 ---------- */
+  var panes   = [1,2,3,4].map(function (n) { return document.getElementById('pane' + n); });
+  var dots    = Array.prototype.slice.call(document.querySelectorAll('.steps .step'));
+  var lines   = Array.prototype.slice.call(document.querySelectorAll('.step-line'));
+
+  var phone       = document.getElementById('phone');
+  var phoneField  = document.getElementById('phoneField');
+  var captcha     = document.getElementById('captcha');
+  var captchaField= document.getElementById('captchaField');
+  var msg1Phone      = document.getElementById('msg1Phone');
+  var msg1PhoneText  = document.getElementById('msg1PhoneText');
+  var msg1Captcha    = document.getElementById('msg1Captcha');
+  var msg1CaptchaText= document.getElementById('msg1CaptchaText');
+  var captchaText1   = document.getElementById('captchaText1');
+  var sendBtn     = document.getElementById('sendBtn');
+  var sendLabel   = document.getElementById('sendLabel');
+
+  var otpRow      = document.getElementById('otpRow');
+  var otpInputs   = Array.prototype.slice.call(otpRow.querySelectorAll('input'));
+  var msg2        = document.getElementById('msg2');
+  var msg2Text    = document.getElementById('msg2Text');
+  var resendRow   = document.getElementById('resendRow');
+  var verifyBtn   = document.getElementById('verifyBtn');
+  var verifyLabel = document.getElementById('verifyLabel');
+
+  var pw          = document.getElementById('pw');
+  var pw2         = document.getElementById('pw2');
+  var pwField     = document.getElementById('pwField');
+  var pw2Field    = document.getElementById('pw2Field');
+  var msg3        = document.getElementById('msg3');
+  var msg3Text    = document.getElementById('msg3Text');
+  var rules       = document.getElementById('rules');
+  var submitBtn   = document.getElementById('submitBtn');
+  var submitLabel = document.getElementById('submitLabel');
+
+  var resultHero  = document.getElementById('resultHero');
+  var resultTitle = document.getElementById('resultTitle');
+  var resultDesc  = document.getElementById('resultDesc');
+  var resultBtnLabel = document.getElementById('resultBtnLabel');
+  var iconDone    = document.getElementById('iconDone');
+  var iconWarn    = document.getElementById('iconWarn');
+  var iconBlock   = document.getElementById('iconBlock');
+
+  var MAX_OTP_ATTEMPTS = 5;   // 與帳密錯誤鎖定策略一致（SafeSay 也是 5 次）
+  var otpAttemptsLeft = MAX_OTP_ATTEMPTS;
+  var timer = null;
+
+  // 簡訊「發送」次數上限（防簡訊轟炸/成本）——跟上面 OTP「輸入」錯誤次數上限是兩件事，
+  // 這個只影響 resendRow 這個狀態區塊，不影響 otpRow／msg2
+  var MAX_RESENDS = 3;
+  var resendCount = 0;
+
+  /* ---------- 步驟切換 ---------- */
+  function showStep(n, opts) {
+    opts = opts || {};
+    panes.forEach(function (p, i) { p.classList.toggle('show', i === n - 1); });
+
+    // 第 4 個畫面（結果）在指示器上算第 3 步完成。
+    // 阻斷狀態例外：流程停在使用者當時所在的那一步，不推進也不算完成
+    var logical = opts.stopAt || Math.min(n, 3);
+    var allDone = (n === 4 && !opts.expired && !opts.stopAt && !opts.blocked);
+    dots.forEach(function (d, i) {
+      var idx = i + 1;
+      d.classList.toggle('current', !allDone && idx === logical);
+      d.classList.toggle('done', allDone || idx < logical);
+    });
+    lines.forEach(function (l, i) {
+      l.classList.toggle('done', allDone || i + 1 < logical);
+    });
+  }
+
+  /* ---------- Step 1 ---------- */
+  /* 圖形驗證碼：固定 4 個字位的擺動角度不變，只換字母 —— 錯誤時自動刷新，舊圖作廢 */
+  var CAPTCHA_ROTATIONS = ['-8deg', '5deg', '-4deg', '7deg'];
+  var CAPTCHA_CHARS = 'ACDEFGHJKLMNPQRTUVWXY'; // 排除易混淆的 B/I/O/S/Z/0/1
+  var currentCaptchaAnswer = 'H7RM'; // 追蹤目前顯示的驗證碼，供輸入比對
+  function randomCaptchaText() {
+    var s = '';
+    for (var i = 0; i < 4; i++) s += CAPTCHA_CHARS[Math.floor(Math.random() * CAPTCHA_CHARS.length)];
+    return s;
+  }
+  function refreshCaptcha1() {
+    currentCaptchaAnswer = randomCaptchaText();
+    captchaText1.innerHTML = currentCaptchaAnswer.split('').map(function (ch, i) {
+      return '<span style="transform:rotate(' + CAPTCHA_ROTATIONS[i] + ')">' + ch + '</span>';
+    }).join('');
+  }
+  document.querySelectorAll('#captchaField .captcha-refresh').forEach(function (btn) {
+    btn.addEventListener('click', refreshCaptcha1);
+  });
+
+  phone.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+    clearMsg(msg1Phone); phoneField.classList.remove('is-error');
+    syncSendBtn();
+  });
+  captcha.addEventListener('input', function () {
+    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
+    clearMsg(msg1Captcha); captchaField.classList.remove('is-error');
+    syncSendBtn();
+  });
+  function syncSendBtn() {
+    sendBtn.disabled = !(phone.value.length === 10 && captcha.value.length === 4);
+  }
+
+  sendBtn.addEventListener('click', function () {
+    // 手機格式、圖形驗證碼各自獨立檢查，各自標紅／各自報錯，不合併成一條、
+    // 也不因為手機先錯就跳過驗證碼的檢查——兩者都可能同時錯
+    var phoneOk = /^09\d{8}$/.test(phone.value);
+    var captchaOk = captcha.value === currentCaptchaAnswer;
+    var hasError = false;
+
+    if (!phoneOk) {
+      phoneField.classList.add('is-error');
+      showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
+      hasError = true;
+    }
+    if (!captchaOk) {
+      captchaField.classList.add('is-error');
+      showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
+      refreshCaptcha1();
+      hasError = true;
+    }
+    if (hasError) return;
+
+    sendBtn.disabled = true;
+    sendLabel.innerHTML = '<span class="spinner"></span>';
+    setTimeout(function () {
+      sendLabel.textContent = '發送驗證碼';
+      sendBtn.disabled = false;
+      goStep2();
+    }, 1000);
+  });
+
+  /* ---------- Step 2 ---------- */
+  function goStep2() {
+    showStep(2);
+    resetOtp();
+    startCountdown(60);
+    otpInputs[0].focus();
+  }
+
+  otpInputs.forEach(function (input, i) {
+    input.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 1);
+      this.classList.toggle('filled', this.value !== '');
+      clearMsg(msg2); otpRow.classList.remove('is-error');
+      if (this.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
+      syncVerifyBtn();
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace' && !this.value && i > 0) {
+        otpInputs[i - 1].focus();
+        otpInputs[i - 1].value = '';
+        otpInputs[i - 1].classList.remove('filled');
+        syncVerifyBtn();
+      }
+      if (e.key === 'ArrowLeft'  && i > 0) otpInputs[i - 1].focus();
+      if (e.key === 'ArrowRight' && i < otpInputs.length - 1) otpInputs[i + 1].focus();
+    });
+    input.addEventListener('paste', function (e) {
+      e.preventDefault();
+      var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+      if (!text) return;
+      otpInputs.forEach(function (inp, k) {
+        inp.value = text[k] || '';
+        inp.classList.toggle('filled', inp.value !== '');
+      });
+      otpInputs[Math.min(text.length, otpInputs.length - 1)].focus();
+      clearMsg(msg2); syncVerifyBtn();
+    });
+    input.addEventListener('focus', function () { this.select(); });
+  });
+
+  function otpValue() { return otpInputs.map(function (i) { return i.value; }).join(''); }
+  function syncVerifyBtn() { verifyBtn.disabled = otpValue().length !== 6; }
+
+  verifyBtn.addEventListener('click', function () {
+    otpRow.classList.add('is-loading');
+    verifyBtn.disabled = true;
+    verifyLabel.innerHTML = '<span class="spinner"></span>驗證中';
+    setTimeout(function () {
+      otpRow.classList.remove('is-loading');
+      verifyLabel.textContent = '驗證';
+      goStep3();     // demo：一律成功，錯誤狀態用下方狀態列看
+    }, 1000);
+  });
+
+  function showOtpError() {
+    otpAttemptsLeft = Math.max(0, otpAttemptsLeft - 1);
+    otpRow.classList.remove('is-error');
+    void otpRow.offsetWidth;
+    otpRow.classList.add('is-error');
+    if (otpAttemptsLeft > 0) {
+      showMsg(msg2, msg2Text, 'error', '驗證碼錯誤，還可以再嘗試 <b>' + otpAttemptsLeft + '</b> 次');
+      verifyBtn.disabled = otpValue().length !== 6;
+    } else {
+      // 兩階鎖定：第 1 次 30 分自動解鎖
+      showMsg(msg2, msg2Text, 'error', '錯誤次數過多，請於 <b>30 分鐘</b>後再試');
+      otpRow.classList.add('is-disabled');
+      verifyBtn.disabled = true;
+      clearInterval(timer);
+      resendRow.innerHTML = '';
+    }
+  }
+
+  /* ---------- 重新發送：狀態區塊，同一格永遠只顯示一種內容 ----------
+     可重發／倒數中／已達上限，三態互斥，不併排、不疊加。
+     已達上限時整行換成錯誤文案，不跟倒數/重發文字並存 */
+  function renderResendRow(state, sec) {
+    resendRow.classList.toggle('is-limit', state === 'limited');
+
+    if (state === 'counting') {
+      resendRow.innerHTML = '沒收到簡訊？<span class="countdown">' + sec + '</span> 秒後可重新發送';
+      return;
+    }
+    if (state === 'ready') {
+      resendRow.innerHTML =
+        '沒收到簡訊？<button class="resend-btn" type="button" id="resendBtn">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>' +
+          '重新發送驗證碼</button>';
+      document.getElementById('resendBtn').addEventListener('click', function () {
+        resendCount++;
+        resendRow.innerHTML =
+          '<span class="resend-sent">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+            '已重新發送</span>';
+        setTimeout(function () {
+          if (resendCount >= MAX_RESENDS) renderResendRow('limited');
+          else startCountdown(60);
+        }, 1600);
+      });
+      return;
+    }
+    if (state === 'limited') {
+      resendRow.innerHTML =
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>' +
+        '<span>今日簡訊次數已達上限，請明日再試，或聯絡客服協助</span>';
+    }
+  }
+
+  function startCountdown(sec) {
+    clearInterval(timer);
+    var left = sec;
+    render();
+    timer = setInterval(function () {
+      left--;
+      if (left <= 0) {
+        clearInterval(timer);
+        renderResendRow(resendCount >= MAX_RESENDS ? 'limited' : 'ready');
+      } else render();
+    }, 1000);
+    function render() { renderResendRow('counting', left); }
+  }
+
+  /* ---------- Step 3 ---------- */
+  function goStep3() {
+    showStep(3);
+    resetPw();
+    pw.focus();
+  }
+
+  var ruleTests = {
+    len:   function (v) { return v.length >= 8; },
+    alpha: function (v) { return /[a-zA-Z]/.test(v); },
+    num:   function (v) { return /\d/.test(v); }
+  };
+
+  function checkRules() {
+    var v = pw.value;
+    var allPass = true;
+    Array.prototype.slice.call(rules.children).forEach(function (li) {
+      var ok = ruleTests[li.dataset.rule](v);
+      li.classList.toggle('pass', ok);
+      if (!ok) allPass = false;
+    });
+    return allPass;
+  }
+
+  function syncSubmitBtn() {
+    var allPass = checkRules();
+    submitBtn.disabled = !(allPass && pw2.value.length > 0);
+  }
+
+  pw.addEventListener('input', function () { clearMsg(msg3); pwField.classList.remove('is-error'); pw2Field.classList.remove('is-error'); syncSubmitBtn(); });
+  pw2.addEventListener('input', function () { clearMsg(msg3); pw2Field.classList.remove('is-error'); syncSubmitBtn(); });
+
+  submitBtn.addEventListener('click', function () {
+    if (pw.value !== pw2.value) {
+      pw2Field.classList.add('is-error');
+      showMsg(msg3, msg3Text, 'error', '兩次輸入的密碼不一致');
+      pw2.focus();
+      return;
+    }
+    submitBtn.disabled = true;
+    submitLabel.innerHTML = '<span class="spinner"></span>';
+    setTimeout(function () {
+      submitLabel.textContent = '更新密碼';
+      showResult(false);
+    }, 1000);
+  });
+
+  /* 眼睛切換 */
+  Array.prototype.slice.call(document.querySelectorAll('.eye-toggle')).forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = document.getElementById(this.dataset.target);
+      var reveal = target.type === 'password';
+      target.type = reveal ? 'text' : 'password';
+      this.classList.toggle('revealed', reveal);
+    });
+  });
+
+  /* ---------- Step 4 ---------- */
+  // resultBtn 依畫面而定：只有「密碼已更新」(happy path C 的終點) 要真的連到登入頁；
+  // 「驗證已逾時」「帳號阻斷」是 demo 展示的例外狀態，維持原本回到步驟①的行為，不串接
+  var resultBtnMode = 'success';   // success | demo-reset
+  function showResult(expired) {
+    // 逾時的是「驗證碼」本身（10 分鐘有效期，見設計清單待確認事項），
+    // 代表使用者卡在步驟②——驗證碼還沒送出成功就過期，不是走完②才逾時。
+    // stopAt:2 讓 stepper 停在②（不打勾），③維持未開始，別誤導成「驗證已通過」。
+    showStep(4, expired ? { expired: true, stopAt: 2 } : {});
+    resultHero.classList.remove('error');
+    resultHero.classList.toggle('warn', expired);
+    iconDone.style.display = expired ? 'none' : 'block';
+    iconWarn.style.display = expired ? 'block' : 'none';
+    iconBlock.style.display = 'none';
+    if (expired) {
+      resultTitle.textContent = '驗證已逾時';
+      resultDesc.style.display = '';
+      resultDesc.innerHTML = '為了保護您的帳號，超過 <b>10 分鐘</b>未完成的驗證會自動失效，請重新開始。';
+      resultBtnLabel.textContent = '重新開始';
+      resultBtnMode = 'demo-reset';
+    } else {
+      resultTitle.textContent = '密碼已更新';
+      resultDesc.innerHTML = '';
+      resultDesc.style.display = 'none';
+      resultBtnLabel.textContent = '前往登入';
+      resultBtnMode = 'success';
+    }
+  }
+
+  /* 阻斷狀態：帳號狀態不符，流程無法繼續，只能請使用者找人協助。
+     與「逾時」不同的是這裡沒有重試路徑，所以按鈕只給「返回登入」。
+     2026-07-31 修正：務必在 OTP 驗證通過之後才觸發此頁——通過前若就透露
+     「這號碼的帳號已關閉／非母帳號」，等於沒驗證身份就洩漏帳號狀態，
+     給攻擊者一個帳號列舉的管道，違背當初把忘記密碼／忘記帳號合併成
+     單一 OTP 流程要防的事。stepper 因此比照「逾時」用預設 logical（不傳
+     stopAt），呈現步驟①②已完成、卡在③之前，而不是卡在步驟①。 */
+  var BLOCKED = {
+    disabled: {
+      // 2026-07-31：改成依入口各自的文案（子帳號版；母帳號版之後再補）。
+      // 不用「母帳號」這個內部術語，一律講「您的帳號管理員」
+      title: '帳號權限已關閉',
+      desc: '此帳號目前無法重設密碼，如需重新啟用請聯繫您的帳號管理員。'
+    },
+    notOwner: {
+      title: '此號碼非母帳號',
+      desc: '您輸入的手機號碼非母帳號，請聯繫當初為您開通帳號的母帳號持有者，以協助查詢。'
+    }
+  };
+
+  function showBlocked(kind) {
+    var c = BLOCKED[kind];
+    showStep(4, { blocked: true });   // 步驟①②已完成、③未達成，不可全打勾
+    resultHero.classList.remove('warn');
+    resultHero.classList.add('error');
+    iconDone.style.display  = 'none';
+    iconWarn.style.display  = 'none';
+    iconBlock.style.display = 'block';
+    resultTitle.textContent = c.title;
+    resultDesc.style.display = '';
+    resultDesc.textContent = c.desc;
+    resultBtnLabel.textContent = '返回登入';
+    resultBtnMode = 'demo-reset';
+  }
+
+  document.getElementById('resultBtn').addEventListener('click', function () {
+    if (resultBtnMode === 'success') {
+      // happy path C 終點：密碼已更新，真的連回登入頁
+      window.location.href = 'F1登入頁-提案.html';
+      return;
+    }
+    // 逾時／阻斷是 demo 展示的例外狀態，維持原本回到步驟①的行為，不串接
+    setState('s1');
+    syncBar('s1');
+  });
+
+  /* ---------- 共用 ---------- */
+  function showMsg(box, textNode, kind, html) {
+    box.classList.remove('error', 'warning');
+    box.classList.add('show', kind);
+    textNode.innerHTML = html;
+  }
+  function clearMsg(box) { box.classList.remove('show', 'error', 'warning'); }
+
+  function resetStep1() {
+    phone.value = ''; captcha.value = '';
+    phoneField.classList.remove('is-error', 'is-disabled');
+    captchaField.classList.remove('is-error', 'is-disabled');
+    clearMsg(msg1Phone); clearMsg(msg1Captcha);
+    sendBtn.disabled = true;
+    sendLabel.textContent = '發送驗證碼';
+  }
+  function resetOtp() {
+    otpAttemptsLeft = MAX_OTP_ATTEMPTS;
+    resendCount = 0;
+    otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
+    otpRow.classList.remove('is-error', 'is-loading', 'is-disabled');
+    clearMsg(msg2);
+    verifyBtn.disabled = true;
+    verifyLabel.textContent = '驗證';
+  }
+  function resetPw() {
+    pw.value = ''; pw2.value = '';
+    pw.type = 'password'; pw2.type = 'password';
+    Array.prototype.slice.call(document.querySelectorAll('.eye-toggle')).forEach(function (b) { b.classList.remove('revealed'); });
+    pwField.classList.remove('is-error'); pw2Field.classList.remove('is-error');
+    clearMsg(msg3);
+    checkRules();
+    submitBtn.disabled = true;
+    submitLabel.textContent = '更新密碼';
+  }
+
+  ['backToLogin1','backToLogin2'].forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function (e) { e.preventDefault(); });
+  });
+
+  /* ---------- demo 狀態切換 ---------- */
+  var stateButtons = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
+  function syncBar(name) {
+    stateButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.state === name); });
+  }
+
+  function setState(s) {
+    clearInterval(timer);
+
+    if (s === 's1' || s === 's1-format' || s === 's1-captcha' || s === 's1-both') {
+      showStep(1); resetStep1();
+      if (s === 's1-format') {
+        phone.value = '0912'; captcha.value = currentCaptchaAnswer;
+        syncSendBtn();
+        phoneField.classList.add('is-error');
+        showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
+      }
+      if (s === 's1-captcha') {
+        // 圖形驗證碼不涉及身分，可以明確講；只標紅驗證碼欄，不動手機欄
+        phone.value = '0912638347'; captcha.value = 'WRNG';
+        syncSendBtn();
+        captchaField.classList.add('is-error');
+        showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
+        refreshCaptcha1();
+      }
+      if (s === 's1-both') {
+        // 手機格式與驗證碼同時錯：各欄下方各自報錯，不合併成一條
+        phone.value = '0912'; captcha.value = 'WRNG';
+        syncSendBtn();
+        phoneField.classList.add('is-error');
+        showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
+        captchaField.classList.add('is-error');
+        showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
+        refreshCaptcha1();
+      }
+      return;
+    }
+
+    // 阻斷：務必在 OTP 驗證通過「之後」才查帳號狀態並顯示。
+    // 通過前（步驟①）一律模糊回應，不透露帳號是否存在／狀態，避免帳號列舉攻擊。
+    if (s === 's2-disabled') { showBlocked('disabled'); return; }
+    if (s === 's2-notowner') { showBlocked('notOwner'); return; }
+
+    if (s === 's2' || s === 's2-error' || s === 's2-locked' || s === 's2-daily') {
+      showStep(2); resetOtp();
+      if (s === 's2') { startCountdown(56); otpInputs[0].focus(); }
+      if (s === 's2-error') {
+        startCountdown(38);
+        ['1','2','3','4','5','9'].forEach(function (v, k) {
+          otpInputs[k].value = v; otpInputs[k].classList.add('filled');
+        });
+        showOtpError();
+      }
+      if (s === 's2-locked') {
+        otpAttemptsLeft = 1;
+        ['1','2','3','4','5','9'].forEach(function (v, k) {
+          otpInputs[k].value = v; otpInputs[k].classList.add('filled');
+        });
+        showOtpError();
+      }
+      if (s === 's2-daily') {
+        // 簡訊「發送」次數上限——跟上面 OTP「輸入」次數上限是兩件事，
+        // 這裡不動 otpRow／msg2，只有 resendRow 這個狀態區塊換掉
+        clearInterval(timer);
+        resendCount = MAX_RESENDS;
+        renderResendRow('limited');
+      }
+      return;
+    }
+
+    if (s === 's3' || s === 's3-mismatch') {
+      showStep(3); resetPw();
+      if (s === 's3-mismatch') {
+        pw.value = 'e8d2026pass'; pw2.value = 'e8d2026pas';
+        syncSubmitBtn();
+        pw2Field.classList.add('is-error');
+        showMsg(msg3, msg3Text, 'error', '兩次輸入的密碼不一致');
+      } else {
+        pw.focus();
+      }
+      return;
+    }
+
+    if (s === 's4')          { showResult(false); return; }
+    if (s === 's4-expired')  { showResult(true);  return; }
+  }
+
+  stateButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      syncBar(this.dataset.state);
+      setState(this.dataset.state);
+    });
+  });
+
+  /* 起始狀態 */
+  showStep(1);
+  checkRules();
+  phone.focus();
+})();
+</script>
+
+</body>
+</html>

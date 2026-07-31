@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 2FA 簡訊驗證頁 — 提案</title>
+<link rel="stylesheet" href="auth-tokens.css">
+<script src="otp-shared.js"></script>
+<style>
+
+  /* 表單／驗證已逾時互斥切換 */
+  .pane { display: none; }
+  .pane.show { display: block; }
+
+  /* ---------- 左側：資安意象 ---------- */
+  /* ---- 會飄動的光暈 ---- */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 時間全部由 JSON 的 speed:28 推算：28s 為基準，另外兩團錯開成 36s / 44s */
+
+  /* 使用者若在系統開了「減少動態效果」，就自動停下來 */
+
+  /* 顆粒質感：用 SVG 濾鏡即時產生，取代原本 45KB 的 base64 貼圖 */
+  /* 用彈性空白撐開版面比例，跟著面板高度縮放，不寫死 px。
+     比例 1 : 2.2 : 2.1（頂→logo、logo→標語、標語→底），量自參考版型：
+     logo 落在約 18% 高度、標語落在約 50%，底部留最大一片空白 */
+  /* 標題全白，橘色留給右邊的登入按鈕當唯一焦點 */
+
+  /* ---------- 右側：卡片 ---------- */
+  .subtitle a {
+    color: var(--text-link); text-decoration: none;
+    transition: color .12s ease;
+  }
+  .subtitle a:hover { color: var(--info-700); }
+
+  /* ---- 6 格驗證碼 ---- */
+  .otp-row input::-webkit-outer-spin-button,
+  .otp-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* 錯誤狀態 */
+  @media (prefers-reduced-motion: reduce) { .otp-row.is-error { animation: none; } }
+
+  /* 驗證中：整排變淡不可點 */
+
+  /* ---- 備用碼：單一輸入框（英數混合、使用者多半用貼上的） ---- */
+  .backup-field { display: none; margin-bottom: var(--space-md); }
+  .backup-field.show { display: block; }
+  .backup-field input {
+    width: 100%; height: 56px;
+    padding: 0 var(--space-lg);
+    text-align: center;
+    font-family: var(--font);
+    font-size: 18px; font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-field);
+    outline: none;
+    transition: box-shadow .12s ease, border-color .12s ease;
+  }
+  .backup-field input::placeholder {
+    color: var(--text-disabled);
+    font-weight: 400; letter-spacing: 1px;
+  }
+  .backup-field input:focus {
+    border-color: var(--border-focus);
+    box-shadow: var(--focus-ring);
+  }
+  .backup-field.is-error input {
+    border-color: var(--border-error);
+    color: var(--text-error);
+  }
+  .backup-field.is-error input:focus { box-shadow: var(--error-ring); }
+  .backup-field.is-error { animation: shake .4s ease; }
+  .backup-field.is-loading { opacity: .5; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .backup-field.is-error { animation: none; } }
+
+  </style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- 左側：品牌區（所有登入前頁面共用同一份） -->
+  <div class="visual-panel">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="visual-spacer-top" aria-hidden="true"></div>
+    <img class="visual-logo" src="logo_every8d_dark.svg" alt="EVERY8D">
+    <div class="visual-spacer-mid" aria-hidden="true"></div>
+    <div class="visual-copy">
+      <h1 class="visual-heading">每一次登入，<br>都經過<em>多重防護</em>驗證</h1>
+      <p class="visual-sub">帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+    </div>
+    <div class="visual-spacer-bottom" aria-hidden="true"></div>
+  </div>
+
+  <!-- 右側：驗證卡片 -->
+  <div class="form-panel">
+    <div class="auth-card">
+
+      <div class="pane show" id="formPane">
+
+      <a class="back-link" href="#" id="backLink">
+        <!-- Lucide: arrow-left -->
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+        </svg>
+        返回登入
+      </a>
+
+      <h1 id="cardTitle">簡訊驗證碼</h1>
+      <p class="subtitle" id="cardSubtitle">
+        驗證碼已發送至您綁定的手機 <b>0912****347</b>，請於 10 分鐘內完成驗證。
+      </p>
+
+      <!-- 6 格驗證碼 -->
+      <div class="otp-row" id="otpRow">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 1 碼">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 2 碼">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 3 碼">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 4 碼">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 5 碼">
+        <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 6 碼">
+      </div>
+
+      <!-- 備用碼：單一輸入框 -->
+      <div class="backup-field" id="backupField">
+        <input type="text" maxlength="8" placeholder="輸入 8 位備用碼" aria-label="備用碼" autocomplete="off" spellcheck="false">
+      </div>
+
+      <!-- 錯誤訊息：跟其他頁共用同一個 .msg 元件（原本這裡自己刷了 .error-msg，已統一） -->
+      <div class="msg" id="errorMsg">
+        <!-- Lucide: circle-alert -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+        </svg>
+        <span id="errorText">驗證碼錯誤，還可以再嘗試 4 次</span>
+      </div>
+
+      <!-- 重新發送 -->
+      <div class="resend-row" id="resendRow"></div>
+
+      <button class="btn btn-primary" id="submitBtn" disabled>
+        <span id="submitLabel">驗證</span>
+      </button>
+
+      <div class="footer-divider"></div>
+      <p class="footer-links">
+        <span id="backupPrefix">收不到簡訊？</span><a href="#" id="backupLink">改用備用碼</a>
+      </p>
+
+      </div>
+
+      <!-- 驗證已逾時：獨立畫面，不算完成，跟找回帳密頁／2FA 綁定引導頁同一套規則 -->
+      <div class="pane" id="paneOtpTimeout">
+        <div class="result-hero warn">
+          <div class="circle">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+            </svg>
+          </div>
+          <h1>驗證已逾時</h1>
+          <p>為了保護您的帳號，超過 <b>10 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
+        </div>
+        <button class="btn btn-primary" id="otpTimeoutBtn" style="margin-top:var(--space-lg)"><span>重新開始</span></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 狀態切換工具列（僅 demo 用） -->
+<div class="state-bar">
+  <span class="tag">狀態</span>
+  <button data-state="default" class="active">輸入中</button>
+  <button data-state="counting">倒數重發</button>
+  <button data-state="error">驗證失敗</button>
+  <button data-state="locked">錯誤達上限</button>
+  <button data-state="backup">改用備用碼</button>
+  <button data-state="daily">簡訊已達上限</button>
+  <button data-state="timeout">驗證已逾時</button>
+</div>
+
+<script>
+(function () {
+  var CORRECT_OTP = '123456'; // demo 用固定正確碼，方便測試成功路徑
+  var backupField = document.getElementById('backupField');
+  var backupInput = backupField.querySelector('input');
+  var BACKUP_LEN  = 8;
+  var errorMsg   = document.getElementById('errorMsg');
+  var errorText  = document.getElementById('errorText');
+  var resendRow  = document.getElementById('resendRow');
+  var submitBtn  = document.getElementById('submitBtn');
+  var submitLbl  = document.getElementById('submitLabel');
+  var cardTitle  = document.getElementById('cardTitle');
+  var cardSub    = document.getElementById('cardSubtitle');
+  var backupLink   = document.getElementById('backupLink');
+  var backupPrefix = document.getElementById('backupPrefix');
+  var formPane   = document.getElementById('formPane');
+  var paneOtpTimeout = document.getElementById('paneOtpTimeout');
+
+  var mode = 'sms';              // sms | backup
+  var MAX_BACKUP_ATTEMPTS = 5;   // 備用碼獨立計次；跟 OTP 輸入次數是兩回事，共用同一個視覺 errorMsg
+  var backupAttemptsLeft = MAX_BACKUP_ATTEMPTS;
+
+  /* ---------- 簡訊 OTP：六格輸入／輸錯鎖定／重發三態／逾時，改用共用模組
+     （otp-shared.js）——跟找回帳密頁、2FA 綁定引導頁同一套邏輯，不再自己寫一份。
+     autoBindVerifyClick:false 是因為這頁的送出按鈕要依模式（sms/backup）分流，
+     由下面自己接管 click 事件 ---------- */
+  var otp = initOtpVerifier({
+    otpRow: document.getElementById('otpRow'),
+    verifyBtn: submitBtn,
+    verifyLabelEl: submitLbl,
+    errorBox: errorMsg,
+    errorTextEl: errorText,
+    resendRow: resendRow,
+    maxAttempts: 5,          // 與帳密錯誤鎖定策略一致
+    maxResends: 3,
+    autoBindVerifyClick: false,
+    checkCode: function (code) { return code === CORRECT_OTP; },
+    timeoutMs: 10 * 60 * 1000,   // 10 分鐘，跟卡片文案一致
+    onSuccess: showSuccess,
+    onTimeout: showOtpTimeout
+  });
+
+  function showSuccess() {
+    // 2026-07-31：拿掉「登入成功」中繼頁。登入是進門，不是任務完成，
+    // 驗證通過直接進平台，不停留讓使用者再點一次
+    // 2026-07-31：改用完整網址（GitHub Pages 部署），本機相對路徑 PM 打不開
+    window.location.href = 'https://alvieforwork.github.io/e8d-nav-prototype/';
+  }
+
+  function showOtpTimeout() {
+    otp.stopTimeout();
+    otp.stopResendTimer();
+    formPane.classList.remove('show');
+    paneOtpTimeout.classList.add('show');
+    // stepper 這頁沒有，逾時單純換成獨立畫面，不影響其他狀態
+  }
+
+  document.getElementById('otpTimeoutBtn').addEventListener('click', function () {
+    paneOtpTimeout.classList.remove('show');
+    formPane.classList.add('show');
+    if (mode === 'backup') setMode('sms');   // 逾時重新開始一律回到簡訊驗證
+    else { otp.reset(); otp.startCountdown(56); }
+  });
+
+  /* ---------- 備用碼模式：這頁獨有，不進共用模組。
+     備用碼的「正確答案」在 2FA 綁定引導頁隨機產生，這裡沒有真正串接資料，
+     demo 一律走錯誤展示，維持原本行為 ---------- */
+  backupInput.addEventListener('input', function () {
+    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, BACKUP_LEN);
+    clearBackupError();
+    submitBtn.disabled = this.value.length !== BACKUP_LEN;
+    if (this.value.length === BACKUP_LEN) verifyBackup();
+  });
+
+  function clearBackupError() {
+    backupField.classList.remove('is-error');
+    errorMsg.classList.remove('show', 'error');
+  }
+
+  function verifyBackup() {
+    backupField.classList.add('is-loading');
+    submitBtn.disabled = true;
+    submitLbl.innerHTML = '<span class="spinner"></span>驗證中';
+    setTimeout(function () {
+      backupField.classList.remove('is-loading');
+      submitLbl.textContent = '驗證';
+      showBackupError();
+    }, 1200);
+  }
+
+  function showBackupError() {
+    backupAttemptsLeft = Math.max(0, backupAttemptsLeft - 1);
+    backupField.classList.remove('is-error');
+    void backupField.offsetWidth;   // 重新觸發抖動動畫
+    backupField.classList.add('is-error');
+    errorMsg.classList.add('show', 'error');
+
+    if (backupAttemptsLeft > 0) {
+      errorText.innerHTML = '備用碼錯誤，還可以再嘗試 <b>' + backupAttemptsLeft + '</b> 次';
+      submitBtn.disabled = backupInput.value.length !== BACKUP_LEN;
+      backupInput.focus();
+    } else {
+      errorText.innerHTML = '錯誤次數過多，請於 <b>30 分鐘</b>後再試';
+      backupInput.disabled = true;
+      submitBtn.disabled = true;
+    }
+  }
+
+  function resetBackup() {
+    backupAttemptsLeft = MAX_BACKUP_ATTEMPTS;
+    backupInput.value = '';
+    backupInput.disabled = false;
+    clearBackupError();
+    submitBtn.disabled = true;
+    submitLbl.textContent = '驗證';
+  }
+
+  function setMode(next) {
+    mode = next;
+    if (mode === 'backup') {
+      cardTitle.textContent = '輸入備用碼';
+      cardSub.innerHTML = '輸入您保存的其中一組備用碼，每組只能用一次。';
+      resendRow.innerHTML = '';
+      resendRow.style.display = 'none';
+      otp.stopResendTimer();
+      backupPrefix.textContent = '手機可以收簡訊了？';
+      backupLink.textContent = '返回簡訊驗證';
+      document.getElementById('otpRow').style.display = 'none';
+      backupField.classList.add('show');
+      resetBackup();
+      backupInput.focus();
+    } else {
+      cardTitle.textContent = '簡訊驗證碼';
+      cardSub.innerHTML = '驗證碼已發送至您綁定的手機 <b>0912****347</b>，請於 10 分鐘內完成驗證。';
+      backupPrefix.textContent = '收不到簡訊？';
+      backupLink.textContent = '改用備用碼';
+      resendRow.style.display = '';
+      document.getElementById('otpRow').style.display = '';
+      backupField.classList.remove('show');
+      otp.reset();
+      otp.startCountdown(56);
+    }
+  }
+
+  backupLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    setMode(mode === 'sms' ? 'backup' : 'sms');
+    syncStateBar(mode === 'backup' ? 'backup' : 'counting');
+  });
+
+  /* 送出按鈕依模式分流：簡訊模式交給共用模組驗證，備用碼模式走自己的邏輯 */
+  submitBtn.addEventListener('click', function () {
+    if (submitBtn.disabled) return;
+    if (mode === 'backup') verifyBackup();
+    else otp.verify();
+  });
+
+  /* ---------- demo 狀態切換 ---------- */
+  var stateButtons = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
+
+  function syncStateBar(name) {
+    stateButtons.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.state === name);
+    });
+  }
+
+  stateButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var s = this.dataset.state;
+      syncStateBar(s);
+
+      if (s === 'timeout') { showOtpTimeout(); return; }
+
+      paneOtpTimeout.classList.remove('show');
+      formPane.classList.add('show');
+
+      if (s === 'daily') {
+        // 簡訊「發送」次數上限——跟 OTP「輸入」次數上限是兩件事，
+        // 不動 otpRow／errorMsg，只有 resendRow 這個狀態區塊換掉
+        if (mode === 'backup') setMode('sms');
+        otp.reset();
+        otp.stopResendTimer();
+        otp.setResendCount(3);
+        otp.renderResendRow('limited');
+        return;
+      }
+
+      if (s === 'backup') { setMode('backup'); return; }
+      if (mode === 'backup') setMode('sms');
+
+      if (s === 'default') {
+        otp.reset();
+        otp.stopResendTimer();
+        otp.renderResendRow('ready');
+      }
+      if (s === 'counting') {
+        otp.reset();
+        otp.startCountdown(56);
+      }
+      if (s === 'error') {
+        otp.reset();
+        otp.startCountdown(38);
+        otp.fillDemo(['1','2','3','4','5','9']);
+        otp.showError();
+        submitBtn.disabled = false;   // 6 碼已填滿，讓使用者可以改完再送一次
+      }
+      if (s === 'locked') {
+        otp.reset();
+        otp.setAttemptsLeft(1);
+        otp.fillDemo(['1','2','3','4','5','9']);
+        otp.showError();
+      }
+    });
+  });
+
+  document.getElementById('backLink').setAttribute('href', 'F1登入頁-提案.html');
+
+  // 起始狀態
+  otp.startCountdown(56);
+  otp.focus();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D · Tabs 元件提案</title>
+<style>
+  :root{
+    --neutral-50:#F7F9FB; --neutral-100:#F0F4F7; --neutral-200:#E4E9EF;
+    --neutral-300:#D0D7DF; --neutral-400:#99A8B8; --neutral-500:#6A7F95;
+    --neutral-600:#495C6E; --neutral-700:#364759; --white:#FFFFFF;
+    --primary-50:#FFF9F5; --primary-75:#FFEADE; --primary-100:#FFDBC8;
+    --primary-700:#FF6416; --primary-800:#FB5C13;
+
+    --bg-page:var(--neutral-50); --bg-surface:var(--white); --bg-hover:var(--neutral-50);
+    --text-primary:var(--neutral-700); --text-secondary:var(--neutral-500);
+    --text-placeholder:var(--neutral-400); --text-brand:var(--primary-700);
+    --border-default:var(--neutral-200);
+
+    --sp-xs:4px; --sp-sm:8px; --sp-md:12px; --sp-lg:16px; --sp-xl:24px; --sp-2xl:32px; --sp-3xl:48px;
+    --r-sm:4px; --r-md:8px; --r-lg:12px; --r-full:999px;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    --font:"Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg-page);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;padding:var(--sp-3xl) var(--sp-xl);font-size:14px;line-height:22px}
+  .wrap{max-width:900px;margin:0 auto}
+  .page-title{font-size:20px;line-height:28px;font-weight:700;margin-bottom:var(--sp-xs)}
+  .page-sub{font-size:14px;color:var(--text-secondary);margin-bottom:var(--sp-2xl)}
+  .sec-label{font-size:13px;line-height:20px;font-weight:600;color:var(--text-secondary);margin:var(--sp-2xl) 0 var(--sp-md)}
+  .demo{background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--r-lg);padding:var(--sp-xl);margin-bottom:var(--sp-lg)}
+  .caption{font-size:12px;color:var(--text-placeholder);margin-top:var(--sp-md)}
+
+  /* ===== 底線型 ===== */
+  .tabs-underline{display:flex;gap:var(--sp-xl);border-bottom:1px solid var(--border-default)}
+  .tab-u{display:inline-flex;align-items:center;gap:var(--sp-sm);
+    padding:var(--sp-md) 0;margin-bottom:-1px;
+    font-size:14px;font-weight:500;color:var(--text-secondary);
+    border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .12s}
+  .tab-u:hover{color:var(--text-primary)}
+  .tab-u.active{color:var(--text-brand);border-bottom-color:var(--primary-700)}
+  .tab-u.disabled{color:var(--text-placeholder);cursor:not-allowed}
+
+  /* count pill */
+  .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
+    padding:0 6px;border-radius:var(--r-full);font-size:12px;font-weight:500;line-height:1;
+    background:var(--neutral-100);color:var(--text-secondary)}
+  .tab-u.active .count{background:var(--primary-75);color:var(--text-brand)}
+
+  /* ===== 分段型（segmented / pill） ===== */
+  .tabs-seg{display:inline-flex;gap:var(--sp-xs);background:var(--neutral-100);
+    border-radius:var(--r-md);padding:var(--sp-xs)}
+  .tab-s{display:inline-flex;align-items:center;gap:var(--sp-sm);
+    padding:var(--sp-sm) var(--sp-lg);border-radius:var(--r-sm);
+    font-size:14px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .12s}
+  .tab-s:hover{color:var(--text-primary)}
+  .tab-s.active{background:var(--bg-surface);color:var(--text-primary);box-shadow:var(--shadow-sm)}
+  .tab-s .count{background:transparent;color:inherit;padding:0;min-width:auto}
+
+  /* icon */
+  .ic{width:16px;height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title">Tabs 元件提案</div>
+  <div class="page-sub">分頁切換元件 · 兩種樣式並排比較 · 情境：發送紀錄狀態篩選 · 使用 E8D token</div>
+
+  <!-- 底線型 -->
+  <div class="sec-label">A. 底線型 Underline（含 count）</div>
+  <div class="demo">
+    <div class="tabs-underline">
+      <div class="tab-u active">全部 <span class="count">128</span></div>
+      <div class="tab-u">已送達 <span class="count">96</span></div>
+      <div class="tab-u">傳送中 <span class="count">12</span></div>
+      <div class="tab-u">發送失敗 <span class="count">3</span></div>
+      <div class="tab-u">已排程 <span class="count">17</span></div>
+    </div>
+    <div class="caption">active＝橘色文字 + 橘底線 + 橘色 count；未選＝灰色。hover 上去文字會變深。</div>
+  </div>
+
+  <div class="sec-label">A. 底線型 — 純文字（無 count）+ 狀態展示</div>
+  <div class="demo">
+    <div class="tabs-underline">
+      <div class="tab-u active">總覽</div>
+      <div class="tab-u">發送紀錄</div>
+      <div class="tab-u">聯絡人</div>
+      <div class="tab-u disabled">帳務（停用）</div>
+    </div>
+    <div class="caption">第 4 個是 disabled 狀態。</div>
+  </div>
+
+  <!-- 分段型 -->
+  <div class="sec-label">B. 分段型 Segmented（含 count）</div>
+  <div class="demo">
+    <div class="tabs-seg">
+      <div class="tab-s active">全部 <span class="count">128</span></div>
+      <div class="tab-s">已送達 <span class="count">96</span></div>
+      <div class="tab-s">發送失敗 <span class="count">3</span></div>
+    </div>
+    <div class="caption">active＝白底色塊 + 微陰影 + 深色文字；灰底容器包住。適合選項少、要「切換器」感的情境。</div>
+  </div>
+
+  <div class="sec-label">B. 分段型 — 純文字</div>
+  <div class="demo">
+    <div class="tabs-seg">
+      <div class="tab-s active">日</div>
+      <div class="tab-s">週</div>
+      <div class="tab-s">月</div>
+    </div>
+    <div class="caption">例如圖表的時間區間切換。</div>
+  </div>
+
+  <div class="caption" style="margin-top:var(--sp-2xl);color:var(--text-secondary)">
+    <b style="color:var(--text-primary)">兩種怎麼選？</b>底線型適合<b>頁面主要分頁、選項多、資料密集</b>（發送紀錄篩選）；分段型適合<b>選項少（2–4 個）、局部切換</b>（時間區間、檢視模式）。我建議兩種都做進設計系統，依情境用。<br>
+    <b style="color:var(--text-primary)">待確認：</b>① active 文字要橘色（現在）還是深色 + 只有底線橘 ② count pill 要不要 ③ 尺寸要幾種（現在單一，可加 sm）④ 底線型要不要支援 leading icon。
+  </div>
+</div>
+</body>
+</html>

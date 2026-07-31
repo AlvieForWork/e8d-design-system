@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D 顏色比較 — 發送紀錄頁</title>
+<style>
+:root{
+  /* Primary 橘（兩版共用） */
+  --primary-700:#FF6416; --primary-800:#E5570F; --primary-50:#FFF9F5; --primary-100:#FFDBC8;
+  /* Neutral slate 藍灰（兩版共用） */
+  --n-50:#F7F9FB; --n-100:#F0F4F7; --n-200:#E4E9EF; --n-300:#D0D7DF;
+  --n-400:#99A8B8; --n-500:#6A7F95; --n-600:#495C6E; --n-700:#364759; --white:#fff;
+  --text-primary:var(--n-700); --text-secondary:var(--n-500);
+  --border:var(--n-200); --bg-page:var(--n-50); --bg-card:#fff;
+}
+/* 版本 A — 沉穩（我目前的狀態色） */
+.ver-sober{
+  --ok-bg:#EEFBF3; --ok-fg:#1E8F48; --ok-dot:#1E8F48;
+  --warn-bg:#FEF5E6; --warn-fg:#C78005; --warn-dot:#C78005;
+  --err-bg:#FDEEED; --err-fg:#C12115; --err-dot:#C12115;
+  --info-bg:#ECF4FD; --info-fg:#105FC6; --info-dot:#105FC6;
+}
+/* 版本 C — 完整 TapTap 原色（底 200 / 圓圈 600 / 字 700） */
+.ver-lively{
+  --ok-bg:#E5F5EC; --ok-fg:#0C9D61; --ok-dot:#47B881;
+  --warn-bg:#FFF7E1; --warn-fg:#FE9B0E; --warn-dot:#FFAD0D;
+  --err-bg:#FFEBEE; --err-fg:#EC2D30; --err-dot:#F64C4C;
+  --info-bg:#E4F2FF; --info-fg:#3A70E2; --info-dot:#3B82F6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:#E9EDF1;color:var(--text-primary);padding:32px}
+.wrap{max-width:1200px;margin:0 auto 48px}
+.verlabel{font-size:14px;font-weight:700;color:#5B6B7C;margin:0 0 10px 4px;letter-spacing:.02em}
+.verlabel span{font-weight:400;color:#8A99A8}
+.app{display:flex;background:var(--bg-page);border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,30,45,.10);border:1px solid #DfE4EA}
+/* Sidebar */
+.side{width:200px;background:var(--white);border-right:1px solid var(--border);padding:18px 0;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:8px;padding:0 20px 18px;font-weight:800;font-size:18px;color:var(--n-700)}
+.brand .dot{width:22px;height:22px;border-radius:6px;background:var(--primary-700);display:inline-block}
+.nav a{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13.5px;color:var(--text-secondary);text-decoration:none}
+.nav a .ic{width:16px;height:16px;border-radius:4px;background:var(--n-300)}
+.nav a.on{color:var(--primary-800);background:var(--primary-50);font-weight:600;border-right:3px solid var(--primary-700)}
+.nav a.on .ic{background:var(--primary-700)}
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:var(--white);border-bottom:1px solid var(--border)}
+.top .t{font-size:16px;font-weight:700}
+.top .r{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--text-secondary)}
+.pts{background:var(--primary-50);color:var(--primary-800);padding:6px 12px;border-radius:8px;font-weight:600;font-size:13px}
+.ava{width:30px;height:30px;border-radius:50%;background:var(--n-300)}
+.body{padding:24px;overflow:auto}
+.h1{font-size:20px;font-weight:700;margin-bottom:4px}
+.sub{font-size:13px;color:var(--text-secondary);margin-bottom:20px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.kpi .lab{font-size:12.5px;color:var(--text-secondary);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.kpi .num{font-size:24px;font-weight:800}
+.kpi .lab .d{width:8px;height:8px;border-radius:50%}
+.kpi.ok .num{color:var(--ok-fg)} .kpi.ok .d{background:var(--ok-dot)}
+.kpi.err .num{color:var(--err-fg)} .kpi.err .d{background:var(--err-dot)}
+.kpi.info .num{color:var(--info-fg)} .kpi.info .d{background:var(--info-dot)}
+.kpi.tot .num{color:var(--n-700)} .kpi.tot .d{background:var(--n-400)}
+/* Filter bar */
+.filter{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.field{background:#fff;border:1px solid var(--n-300);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text-primary);min-width:130px}
+.field.ph{color:var(--n-400)}
+.btn{background:var(--primary-700);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer}
+/* Table */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:12px 16px;background:var(--n-50);color:var(--text-secondary);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:13px 16px;border-bottom:1px solid var(--n-100);color:var(--text-primary)}
+tr:last-child td{border-bottom:none}
+.mono{font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 5px;border-radius:999px;font-size:12.5px;font-weight:600}
+.badge .ic{width:17px;height:17px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;line-height:1}
+.b-ok{background:var(--ok-bg);color:var(--ok-fg)} .b-ok .ic{background:var(--ok-dot)}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg)} .b-warn .ic{background:var(--warn-dot)}
+.b-err{background:var(--err-bg);color:var(--err-fg)} .b-err .ic{background:var(--err-dot)}
+.b-info{background:var(--info-bg);color:var(--info-fg)} .b-info .ic{background:var(--info-dot)}
+.link{color:var(--info-fg);text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- ============ 版本 A ============ -->
+<div class="wrap">
+  <p class="verlabel">版本 A — 沉穩<span>（企業感、目前的狀態色）</span></p>
+  <div class="app ver-sober" id="A"></div>
+</div>
+
+<!-- ============ 版本 B ============ -->
+<div class="wrap">
+  <p class="verlabel">版本 C — 完整 TapTap 配色<span>（全狀態用 TapTap 原色 + TapTap badge 樣式：實心圓 icon）</span></p>
+  <div class="app ver-lively" id="B"></div>
+</div>
+
+<script>
+const TMPL = `
+  <aside class="side">
+    <div class="brand"><span class="dot"></span>EVERY8D</div>
+    <nav class="nav">
+      <a href="#"><span class="ic"></span>總覽</a>
+      <a href="#"><span class="ic"></span>簡訊發送</a>
+      <a class="on" href="#"><span class="ic"></span>發送紀錄</a>
+      <a href="#"><span class="ic"></span>統計報表</a>
+      <a href="#"><span class="ic"></span>點數管理</a>
+      <a href="#"><span class="ic"></span>帳號設定</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="top">
+      <div class="t">發送紀錄查詢</div>
+      <div class="r"><span class="pts">剩餘點數 183.00</span><span>J.S.</span><span class="ava"></span></div>
+    </div>
+    <div class="body">
+      <div class="h1">發送紀錄查詢</div>
+      <div class="sub">查詢區間 2026/07/21 · 共 12,480 則發送紀錄</div>
+      <div class="kpis">
+        <div class="kpi tot"><div class="lab"><span class="d"></span>總發送</div><div class="num">12,480</div></div>
+        <div class="kpi ok"><div class="lab"><span class="d"></span>成功</div><div class="num">11,920</div></div>
+        <div class="kpi err"><div class="lab"><span class="d"></span>失敗</div><div class="num">384</div></div>
+        <div class="kpi info"><div class="lab"><span class="d"></span>傳送中</div><div class="num">176</div></div>
+      </div>
+      <div class="filter">
+        <span class="field">2026/07/21</span>
+        <span class="field ph">接收門號</span>
+        <span class="field ph">接收狀態</span>
+        <button class="btn">查詢</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>發送時間</th><th>接收門號</th><th>簡訊主旨</th><th>點數</th><th>狀態</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="mono">07/21 14:32</td><td class="mono">0912-***-347</td><td>驗證碼通知</td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 14:30</td><td class="mono">0928-***-115</td><td>訂單出貨通知</td><td class="mono">1</td><td><span class="badge b-info"><span class="ic">↻</span>傳送中</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 14:28</td><td class="mono">0955-***-882</td><td>週年慶生日優惠</td><td class="mono">2</td><td><span class="badge b-err"><span class="ic">✕</span>收訊失敗</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 13:50</td><td class="mono">0910-***-201</td><td>信用卡帳單提醒</td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 09:00</td><td class="mono">0937-***-556</td><td>會員專屬活動邀請</td><td class="mono">1</td><td><span class="badge b-warn"><span class="ic">◷</span>已排程</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 08:45</td><td class="mono">0968-***-042</td><td>取件通知</td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+            <tr><td class="mono">07/21 08:30</td><td class="mono">0921-***-778</td><td>系統維護公告</td><td class="mono">1</td><td><span class="badge b-err"><span class="ic">✕</span>收訊失敗</span></td><td><a class="link" href="#">明細</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+document.getElementById('A').innerHTML = TMPL;
+document.getElementById('B').innerHTML = TMPL;
+</script>
+</body>
+</html>

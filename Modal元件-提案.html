@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D · Modal 元件提案</title>
+<style>
+  :root{
+    --neutral-50:#F7F9FB; --neutral-100:#F0F4F7; --neutral-200:#E4E9EF;
+    --neutral-300:#D0D7DF; --neutral-400:#99A8B8; --neutral-500:#6A7F95;
+    --neutral-600:#495C6E; --neutral-700:#364759; --white:#FFFFFF;
+    --primary-50:#FFF9F5; --primary-75:#FFEADE; --primary-100:#FFDBC8;
+    --primary-700:#FF6416; --primary-800:#FB5C13; --primary-900:#F04D0A;
+    --danger-200:#FFEBEE; --danger-600:#F64C4C; --danger-700:#EC2D30;
+
+    --bg-page:var(--neutral-50); --bg-surface:var(--white);
+    --bg-hover:var(--neutral-50); --bg-selected:var(--primary-75);
+    --text-primary:var(--neutral-700); --text-secondary:var(--neutral-500);
+    --text-placeholder:var(--neutral-400); --text-brand:var(--primary-700);
+    --border-default:var(--neutral-200); --border-strong:var(--neutral-300);
+
+    --sp-xs:4px; --sp-sm:8px; --sp-md:12px; --sp-lg:16px; --sp-xl:24px; --sp-2xl:32px; --sp-3xl:48px;
+    --r-sm:4px; --r-md:8px; --r-lg:12px; --r-full:999px;
+    --shadow-lg:0 12px 28px rgba(16,24,40,.14), 0 4px 10px rgba(16,24,40,.08); /* ⚠️ 估計值，進 Figma 用 E8D/Shadow/lg */
+    --font:"Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg-page);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;padding:var(--sp-3xl) var(--sp-xl);font-size:14px;line-height:22px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .page-title{font-size:20px;line-height:28px;font-weight:700;margin-bottom:var(--sp-xs)}
+  .page-sub{font-size:14px;color:var(--text-secondary);margin-bottom:var(--sp-2xl)}
+  .sec-label{font-size:13px;line-height:20px;font-weight:600;color:var(--text-secondary);
+    margin:var(--sp-2xl) 0 var(--sp-md);letter-spacing:.02em}
+  .sec-label .size{color:var(--text-placeholder);font-weight:400;margin-left:6px}
+  .sec-label .tag{color:var(--text-placeholder);font-weight:400;margin-left:6px}
+
+  .stage{position:relative;background:rgba(54,71,89,.45);border-radius:var(--r-lg);
+    padding:var(--sp-3xl) var(--sp-lg);display:flex;justify-content:center;
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 22px, transparent 22px 44px);}
+
+  .modal{background:var(--bg-surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);
+    width:520px;max-width:100%;overflow:hidden;display:flex;flex-direction:column}
+  .modal.sm{width:400px} .modal.md{width:520px} .modal.lg{width:640px}
+
+  .m-head{display:flex;align-items:flex-start;gap:var(--sp-md);
+    padding:var(--sp-xl) var(--sp-xl) var(--sp-sm)}
+  .m-head .titles{flex:1}
+  .m-title{font-size:16px;line-height:24px;font-weight:500;color:var(--text-primary)}
+  .m-close{width:28px;height:28px;border:0;background:transparent;border-radius:var(--r-md);
+    color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin:-4px -4px 0 0}
+  .m-close:hover{background:var(--bg-hover)}
+  .m-body{padding:0 var(--sp-xl) var(--sp-lg);color:var(--text-secondary);font-size:14px;line-height:22px}
+  .m-foot{display:flex;justify-content:flex-end;gap:var(--sp-sm);
+    padding:var(--sp-sm) var(--sp-xl) var(--sp-xl)}
+
+  .btn{display:inline-flex;align-items:center;gap:var(--sp-sm);height:36px;padding:0 var(--sp-lg);
+    border-radius:var(--r-md);font-size:14px;font-weight:500;line-height:1;cursor:pointer;border:1px solid transparent;white-space:nowrap}
+  .btn-primary{background:var(--primary-700);color:#fff} .btn-primary:hover{background:var(--primary-800)}
+  .btn-secondary{background:var(--bg-surface);border-color:var(--border-default);color:var(--text-primary)}
+  .btn-secondary:hover{border-color:var(--border-strong);background:var(--neutral-50)}
+  .btn-danger{background:var(--danger-600);color:#fff} .btn-danger:hover{background:var(--danger-700)}
+
+  .field{margin-bottom:var(--sp-lg)}
+  .field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:13px;line-height:20px;font-weight:500;color:var(--text-primary);margin-bottom:6px}
+  .input,.select{width:100%;height:36px;padding:0 var(--sp-md);background:var(--bg-surface);
+    border:1px solid var(--border-default);border-radius:var(--r-md);font:inherit;font-size:14px;color:var(--text-primary);outline:none}
+  .input::placeholder{color:var(--text-placeholder)}
+  .input:focus,.select:focus{border-color:var(--primary-700);box-shadow:0 0 0 3px rgba(255,100,22,.15)}
+  .select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236A7F95' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+
+  .footnote{margin-top:var(--sp-2xl);font-size:12px;line-height:20px;color:var(--text-placeholder)}
+  .footnote b{color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title">Modal 元件提案</div>
+  <div class="page-sub">對話框元件 · 確認型無 ✕（AlertDialog）、表單型有 ✕（Dialog）· 全部使用 E8D token、沿用既有 Button / Input / Select</div>
+
+  <!-- 1. 危險確認 -->
+  <div class="sec-label">1. 危險確認 Danger Confirm<span class="tag">· 無 ✕</span><span class="size">尺寸 sm 400</span></div>
+  <div class="stage">
+    <div class="modal sm">
+      <div class="m-head">
+        <div class="titles"><div class="m-title">刪除發送紀錄</div></div>
+      </div>
+      <div class="m-body">確定要刪除這 1 筆發送紀錄嗎？刪除後將無法復原。</div>
+      <div class="m-foot">
+        <button class="btn btn-secondary">取消</button>
+        <button class="btn btn-danger">刪除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 一般確認 -->
+  <div class="sec-label">2. 一般確認 Confirm<span class="tag">· 無 ✕</span><span class="size">尺寸 md 520</span></div>
+  <div class="stage">
+    <div class="modal md">
+      <div class="m-head">
+        <div class="titles"><div class="m-title">確認送出</div></div>
+      </div>
+      <div class="m-body">確定要送出這批共 <b style="color:var(--text-primary)">128 則</b>簡訊嗎？預計扣除 128 點，送出後無法取消。</div>
+      <div class="m-foot">
+        <button class="btn btn-secondary">取消</button>
+        <button class="btn btn-primary">確認送出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 表單型 -->
+  <div class="sec-label">3. 表單型 Form<span class="tag">· 有 ✕</span><span class="size">尺寸 md 520（含 Input / Select）</span></div>
+  <div class="stage">
+    <div class="modal md">
+      <div class="m-head">
+        <div class="titles"><div class="m-title">編輯聯絡人</div></div>
+        <button class="m-close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="m-body">
+        <div class="field">
+          <label>姓名</label>
+          <input class="input" value="陳怡君">
+        </div>
+        <div class="field">
+          <label>手機號碼</label>
+          <input class="input" value="0912-345-678">
+        </div>
+        <div class="field">
+          <label>群組</label>
+          <select class="select"><option>VIP 客戶</option><option>一般會員</option><option>潛在客戶</option></select>
+        </div>
+      </div>
+      <div class="m-foot">
+        <button class="btn btn-secondary">取消</button>
+        <button class="btn btn-primary">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>設計決策：</b>對話框＝白底 + 圓角 lg12 + shadow/lg；遮罩＝半透明深藍灰 45%。<b>確認型（危險/一般）無 ✕</b>（AlertDialog，強迫明確選擇），<b>表單型有 ✕</b>（Dialog，可放棄退出）。Footer 無分隔線、按鈕右對齊；主要動作 Primary 橘、破壞性 Danger 紅、次要 Secondary。表單型直接用既有 Input / Select（focus 橘色光暈）。<br>
+    <b>元件彈性：</b>Footer 的「取消」按鈕之後做成可隱藏 → 需要單顆確認鈕時關掉取消即可。<br>
+    <b>尺寸：</b>sm 400 / md 520 / lg 640 三階。
+  </div>
+</div>
+</body>
+</html>

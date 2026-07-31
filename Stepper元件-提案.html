@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stepper 元件 — 提案（甲：橘色打勾 vs 乙：綠色打勾）</title>
+
+<!-- ⭐ 這支原型直接引用共用 token 檔，頁面內不再複製任何色碼 -->
+<link rel="stylesheet" href="auth-tokens.css">
+
+<style>
+  /* ============================================================
+     以下只放「這份文件頁獨有」的排版樣式
+     顏色、間距、圓角、字級全部沿用 auth-tokens.css 的 token
+     ============================================================ */
+  body { padding: var(--space-3xl) var(--space-xl); }
+
+  .doc {
+    max-width: 1120px; margin: 0 auto;
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-3xl);
+  }
+
+  .doc-head { margin-bottom: var(--space-3xl); }
+  .doc-head h1 { font-size: 28px; font-weight: var(--fw-bold); margin: 0 0 var(--space-sm); }
+  .doc-head p  { font-size: var(--fs-sm); line-height: 1.7; color: var(--text-secondary); margin: 0; max-width: 660px; }
+  .doc-head .en { font-size: var(--fs-caption); color: var(--text-disabled); margin-top: var(--space-xs); }
+
+  .divider { height: 1px; background: var(--border-default); margin: var(--space-2xl) 0; }
+
+  .section-title {
+    display: flex; align-items: center; gap: var(--space-sm);
+    font-size: 18px; font-weight: var(--fw-bold);
+    margin: 0 0 var(--space-lg);
+  }
+  .section-note {
+    font-size: var(--fs-caption); line-height: 1.7; color: var(--text-secondary);
+    margin: 0 0 var(--space-xl); max-width: 660px;
+  }
+
+  /* 甲乙兩案並排 */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); }
+  @media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+
+  .case {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    background: var(--bg-surface);
+  }
+  .case-head {
+    display: flex; align-items: baseline; gap: var(--space-sm);
+    margin-bottom: var(--space-xs);
+  }
+  .case-tag {
+    font-size: var(--fs-micro); font-weight: var(--fw-semi);
+    padding: 3px var(--space-sm);
+    border-radius: var(--radius-full);
+    background: var(--neutral-100); color: var(--text-secondary);
+  }
+  .case-head h3 { font-size: var(--fs-lead); font-weight: var(--fw-semi); margin: 0; }
+  .case-sub {
+    font-size: var(--fs-micro); line-height: 1.7; color: var(--text-secondary);
+    margin: 0 0 var(--space-xl);
+  }
+
+  .demo-row { margin-bottom: var(--space-xl); }
+  .demo-row:last-child { margin-bottom: 0; }
+  .demo-label {
+    font-size: var(--fs-label); color: var(--text-disabled);
+    margin-bottom: var(--space-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .demo-box {
+    padding: var(--space-lg);
+    background: var(--bg-page);
+    border-radius: var(--radius-md);
+  }
+
+  /* 純圓點版本：置中、線固定寬（一次性短流程用） */
+  .steps.dots-only { justify-content: center; margin-bottom: 0; }
+  .steps.dots-only .step-line { flex: 0 0 44px; }
+
+  /* 帶標籤版本沿用 auth-tokens.css 的 .steps（線 flex:1 撐滿） */
+  .steps { margin-bottom: 0; }
+
+  /* ---- 乙案：已完成改用 success 綠 ---- */
+  .case-b .step.done .step-dot,
+  .case-b .step-dot.done {
+    background: var(--success-600);
+    border-color: var(--success-600);
+  }
+  .case-b .step-line.done { background: var(--success-600); }
+
+  /* 規格表 */
+  table.spec {
+    width: 100%; border-collapse: collapse;
+    font-size: var(--fs-caption);
+  }
+  table.spec th, table.spec td {
+    text-align: left; padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-default);
+    vertical-align: top;
+  }
+  table.spec th {
+    font-weight: var(--fw-semi); color: var(--text-secondary);
+    font-size: var(--fs-micro);
+    background: var(--bg-page);
+    white-space: nowrap;
+  }
+  table.spec td code {
+    font-family: var(--font-mono); font-size: var(--fs-micro);
+    background: var(--bg-page); padding: 2px 6px; border-radius: var(--radius-sm);
+    color: var(--text-primary);
+  }
+  table.spec tr:last-child td { border-bottom: none; }
+
+  /* 實境對照：塞進真實卡片寬度 */
+  .in-context { display: flex; gap: var(--space-xl); flex-wrap: wrap; }
+  .ctx-card {
+    width: var(--card-width);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+  }
+  .ctx-card.wide { width: var(--card-width-wide); }
+  .ctx-label {
+    font-size: var(--fs-label); color: var(--text-disabled);
+    margin-bottom: var(--space-sm);
+  }
+  .ctx-card h2 {
+    font-size: var(--fs-title); font-weight: var(--fw-bold);
+    margin: 0 0 6px;
+  }
+  .ctx-card .sub {
+    font-size: var(--fs-caption); color: var(--text-secondary);
+    margin: 0 0 var(--space-lg);
+  }
+  .ctx-field {
+    height: var(--field-height);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-field);
+    background: var(--bg-input);
+    display: flex; align-items: center;
+    padding: 0 var(--space-md);
+    font-size: var(--fs-body); color: var(--text-disabled);
+    margin-bottom: var(--space-md);
+  }
+
+  .callout-note {
+    display: flex; gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--warning-200);
+    border-radius: var(--radius-md);
+    font-size: var(--fs-caption); line-height: 1.7;
+    color: #6b4a00;
+    margin-top: var(--space-xl);
+  }
+  .callout-note svg { flex-shrink: 0; margin-top: 2px; color: var(--icon-warning); }
+  .callout-note b { font-weight: var(--fw-semi); }
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+  <div class="doc-head">
+    <h1>Stepper 步驟指示器</h1>
+    <p>
+      多步驟流程的進度指示。目前只存在於 HTML 原型、<strong>還沒收進設計系統</strong>，
+      所以「2FA 綁定引導」與「忘記密碼」兩頁各自畫了一份，圓點尺寸一個 28px、一個 26px。
+      這份提案要決定配色方向，定案後收成第 11 個元件。
+    </p>
+    <p class="en">Step indicator for multi-step flows. Not yet in the design system — this proposal decides the color direction.</p>
+  </div>
+
+  <!-- ============ 配色兩案 ============ -->
+  <h2 class="section-title">🎨 配色兩案</h2>
+  <p class="section-note">
+    差別只在「<strong>已完成</strong>」那一步：甲案跟當前步一樣用主色橘，乙案改用 success 綠。
+    未進行的步驟兩案相同（米灰底）。
+  </p>
+
+  <div class="compare">
+
+    <!-- ---------- 甲案 ---------- -->
+    <div class="case case-a">
+      <div class="case-head">
+        <span class="case-tag">甲案</span>
+        <h3>已完成 = 橘色打勾</h3>
+      </div>
+      <p class="case-sub">
+        現況做法。整個元件只有<strong>兩個色系</strong>（主色橘 ＋ 中性米灰），
+        符合「同一元件不超過兩個色系」的檢查原則。
+      </p>
+
+      <div class="demo-row">
+        <div class="demo-label">帶文字標籤 — 進行到第 2 步</div>
+        <div class="demo-box">
+          <div class="steps">
+            <div class="step done">
+              <span class="step-dot"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">驗證手機</span>
+            </div>
+            <span class="step-line done"></span>
+            <div class="step current">
+              <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">設定密碼</span>
+            </div>
+            <span class="step-line"></span>
+            <div class="step">
+              <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">完成</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-row">
+        <div class="demo-label">只有圓點 — 四個進度階段</div>
+        <div class="demo-box">
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot current"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot current"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot current"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- 乙案 ---------- -->
+    <div class="case case-b">
+      <div class="case-head">
+        <span class="case-tag">乙案</span>
+        <h3>已完成 = 綠色打勾</h3>
+      </div>
+      <p class="case-sub">
+        綠色＝完成是通用認知，語意更直覺。代價是元件變成<strong>三個色系</strong>
+        （橘當前 ＋ 綠已完成 ＋ 米灰未進行）。
+      </p>
+
+      <div class="demo-row">
+        <div class="demo-label">帶文字標籤 — 進行到第 2 步</div>
+        <div class="demo-box">
+          <div class="steps">
+            <div class="step done">
+              <span class="step-dot"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">驗證手機</span>
+            </div>
+            <span class="step-line done"></span>
+            <div class="step current">
+              <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">設定密碼</span>
+            </div>
+            <span class="step-line"></span>
+            <div class="step">
+              <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span class="step-label">完成</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-row">
+        <div class="demo-label">只有圓點 — 四個進度階段</div>
+        <div class="demo-box">
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot current"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot current"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line"></span>
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only" style="margin-bottom:var(--space-lg)">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot current"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="steps dots-only">
+            <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-line done"></span>
+            <span class="step-dot done"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout-note">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+    </svg>
+    <span>
+      <b>最後一張（全部完成）是兩案差距最明顯的地方。</b>
+      甲案全綠…抱歉，甲案全橘，會跟主按鈕搶注意力；乙案全綠則跟「完成頁的綠色大勾」語意串起來。
+      建議看這張決定。
+    </span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ============ 實境對照 ============ -->
+  <h2 class="section-title">📐 放進真實卡片裡</h2>
+  <p class="section-note">
+    Stepper 實際會出現在 400px 的標準卡片（忘記密碼）與 520px 的寬版卡片（2FA 綁定引導）。
+    左邊甲案、右邊乙案。
+  </p>
+
+  <div class="in-context">
+    <div>
+      <div class="ctx-label">甲案 · 400px 標準卡片 · 只有圓點</div>
+      <div class="ctx-card case-a">
+        <div class="steps dots-only" style="margin-bottom:var(--space-xl)">
+          <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="step-line done"></span>
+          <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="step-line"></span>
+          <span class="step-dot current"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        </div>
+        <h2>設定新密碼</h2>
+        <p class="sub">已完成手機驗證。</p>
+        <div class="ctx-field">新密碼</div>
+        <div class="ctx-field">確認新密碼</div>
+        <button class="btn btn-primary"><span>更新密碼</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="ctx-label">乙案 · 400px 標準卡片 · 只有圓點</div>
+      <div class="ctx-card case-b">
+        <div class="steps dots-only" style="margin-bottom:var(--space-xl)">
+          <span class="step-dot done"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="step-line done"></span>
+          <span class="step-dot done"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="step-line"></span>
+          <span class="step-dot current"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        </div>
+        <h2>設定新密碼</h2>
+        <p class="sub">已完成手機驗證。</p>
+        <div class="ctx-field">新密碼</div>
+        <div class="ctx-field">確認新密碼</div>
+        <button class="btn btn-primary"><span>更新密碼</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="ctx-label">甲案 · 520px 寬版卡片 · 帶文字標籤</div>
+      <div class="ctx-card wide case-a">
+        <div class="steps" style="margin-bottom:var(--space-xl)">
+          <div class="step done">
+            <span class="step-dot"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">認識雙重驗證</span>
+          </div>
+          <span class="step-line done"></span>
+          <div class="step current">
+            <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">驗證手機</span>
+          </div>
+          <span class="step-line"></span>
+          <div class="step">
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">保存備用碼</span>
+          </div>
+        </div>
+        <h2>驗證您的手機號碼</h2>
+        <p class="sub">我們會將驗證碼發送到您帳號綁定的號碼，請確認號碼正確。</p>
+        <button class="btn btn-primary"><span>發送驗證碼</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="ctx-label">乙案 · 520px 寬版卡片 · 帶文字標籤</div>
+      <div class="ctx-card wide case-b">
+        <div class="steps" style="margin-bottom:var(--space-xl)">
+          <div class="step done">
+            <span class="step-dot"><span class="num">1</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">認識雙重驗證</span>
+          </div>
+          <span class="step-line done"></span>
+          <div class="step current">
+            <span class="step-dot"><span class="num">2</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">驗證手機</span>
+          </div>
+          <span class="step-line"></span>
+          <div class="step">
+            <span class="step-dot"><span class="num">3</span><svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="step-label">保存備用碼</span>
+          </div>
+        </div>
+        <h2>驗證您的手機號碼</h2>
+        <p class="sub">我們會將驗證碼發送到您帳號綁定的號碼，請確認號碼正確。</p>
+        <button class="btn btn-primary"><span>發送驗證碼</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ============ 規格 ============ -->
+  <h2 class="section-title">🔧 規格（兩案共用）</h2>
+  <p class="section-note">
+    這批數值統一了目前兩頁不一致的地方（圓點 28 vs 26、線固定寬 vs 撐滿、置中 vs 靠左）。
+  </p>
+
+  <table class="spec">
+    <tr>
+      <th style="width:150px">項目</th>
+      <th style="width:200px">規格</th>
+      <th>說明</th>
+    </tr>
+    <tr>
+      <td>圓點尺寸</td>
+      <td><code>28 × 28</code>　圓形</td>
+      <td>統一為 28（原本忘記密碼那頁誤用 26）</td>
+    </tr>
+    <tr>
+      <td>圓點內文字</td>
+      <td><code>--fs-caption</code> 13px<br><code>--fw-semi</code> 600</td>
+      <td>tabular-nums 等寬數字，避免 1 和 2 寬度不同造成跳動</td>
+    </tr>
+    <tr>
+      <td>打勾圖示</td>
+      <td><code>13 × 13</code>　stroke 3</td>
+      <td>已完成時顯示打勾、<strong>隱藏數字</strong></td>
+    </tr>
+    <tr>
+      <td>未進行（Upcoming）</td>
+      <td>底 <code>--neutral-100</code><br>框 <code>--border-default</code><br>字 <code>--text-disabled</code></td>
+      <td>米灰底，兩案相同</td>
+    </tr>
+    <tr>
+      <td>當前（Current）</td>
+      <td>底 <code>--primary-700</code><br>字白色</td>
+      <td>主色橘，兩案相同</td>
+    </tr>
+    <tr>
+      <td>已完成（Done）</td>
+      <td>甲：<code>--primary-700</code><br>乙：<code>--success-600</code></td>
+      <td><strong>← 這次要決定的就是這一列</strong></td>
+    </tr>
+    <tr>
+      <td>連接線</td>
+      <td>高 <code>1px</code>、左右 margin <code>--space-md</code><br>已走過的線同 Done 色</td>
+      <td>帶標籤時 <code>flex:1</code> 撐滿；純圓點時固定 <code>44px</code></td>
+    </tr>
+    <tr>
+      <td>標籤文字</td>
+      <td><code>--fs-caption</code> 13px<br>current 600 深色<br>done 一般 secondary<br>upcoming disabled</td>
+      <td>標籤與圓點間距 <code>--space-sm</code> 8px</td>
+    </tr>
+    <tr>
+      <td>兩種用法</td>
+      <td>帶標籤 / 只有圓點</td>
+      <td>首次設定引導帶標籤；一次性短流程只放圓點（標題已說明當前步驟，放標籤會重複）</td>
+    </tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <!-- ============ Figma 元件結構建議 ============ -->
+  <h2 class="section-title">🧩 收進 Figma 的結構建議</h2>
+  <p class="section-note">
+    照既有元件的慣例（像 Pagination Item、Table Cell），做「單顆 Step Item」的 master，
+    整條 Stepper 在文件頁用 auto-layout 組合示範，不把整條做成一個元件（步數會變動）。
+  </p>
+
+  <table class="spec">
+    <tr>
+      <th style="width:200px">元件</th>
+      <th style="width:240px">Property</th>
+      <th>說明</th>
+    </tr>
+    <tr>
+      <td><code>Step Item [master]</code></td>
+      <td><code>State</code>（VARIANT）<br>Upcoming / Current / Done</td>
+      <td>3 個 variant。Done 自動顯示打勾隱藏數字</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><code>Show Label</code>（BOOLEAN）</td>
+      <td>預設 true。關掉就是純圓點用法</td>
+    </tr>
+    <tr>
+      <td><code>Step Line [master]</code></td>
+      <td><code>State</code>（VARIANT）<br>Default / Done</td>
+      <td>獨立元件，這樣線的顏色可以獨立切換<br>（第 2 步進行中時，第 1 條線是 done、第 2 條還沒）</td>
+    </tr>
+  </table>
+
+  <div class="callout-note" style="background:var(--info-200); color:#1c4a8a">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--icon-info)">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+    </svg>
+    <span>
+      <b>文字標籤不做成 TEXT property。</b>
+      Figma 的限制：同一個 TEXT property 綁到多個 variant 上會強制共用同一個預設值，
+      會害三個狀態全變成同一行字。跟 Badge、Checkbox 一樣保留各 variant 獨立、可雙擊編輯。
+    </span>
+  </div>
+
+</div>
+
+</body>
+</html>

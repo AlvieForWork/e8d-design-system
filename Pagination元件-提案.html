@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D · Pagination 元件提案</title>
+<style>
+  :root{
+    --neutral-50:#F7F9FB; --neutral-100:#F0F4F7; --neutral-200:#E4E9EF;
+    --neutral-300:#D0D7DF; --neutral-400:#99A8B8; --neutral-500:#6A7F95;
+    --neutral-600:#495C6E; --neutral-700:#364759; --white:#FFFFFF;
+    --primary-700:#FF6416; --primary-800:#FB5C13;
+
+    --bg-page:var(--neutral-50); --bg-surface:var(--white); --bg-hover:var(--neutral-50);
+    --text-primary:var(--neutral-700); --text-secondary:var(--neutral-500);
+    --text-placeholder:var(--neutral-400); --text-disabled:var(--neutral-400); --text-on-brand:#FFFFFF;
+    --border-default:var(--neutral-200);
+
+    --sp-xs:4px; --sp-sm:8px; --sp-md:12px; --sp-lg:16px; --sp-xl:24px; --sp-2xl:32px; --sp-3xl:48px;
+    --r-sm:4px; --r-md:8px; --r-full:999px;
+    --font:"Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg-page);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;padding:var(--sp-3xl) var(--sp-xl);font-size:14px;line-height:22px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .page-title{font-size:20px;line-height:28px;font-weight:700;margin-bottom:var(--sp-xs)}
+  .page-sub{font-size:14px;color:var(--text-secondary);margin-bottom:var(--sp-2xl)}
+  .sec-label{font-size:13px;line-height:20px;font-weight:600;color:var(--text-secondary);margin:var(--sp-2xl) 0 var(--sp-md)}
+  .demo{background:var(--bg-surface);border:1px solid var(--border-default);border-radius:12px;padding:var(--sp-xl);margin-bottom:var(--sp-lg)}
+  .caption{font-size:12px;color:var(--text-placeholder);margin-top:var(--sp-md)}
+
+  .pg{min-width:32px;height:32px;padding:0 6px;border-radius:var(--r-md);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    color:var(--text-secondary);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;transition:all .12s}
+  .pg:hover{background:var(--bg-hover);color:var(--text-primary)}
+  .pg.active{background:var(--primary-700);color:var(--text-on-brand)}
+  .pg.active:hover{background:var(--primary-800);color:var(--text-on-brand)}
+  .pg.ellipsis{cursor:default;color:var(--text-placeholder)}
+  .pg.ellipsis:hover{background:transparent;color:var(--text-placeholder)}
+
+  .pg-icon{width:32px;height:32px;border-radius:var(--r-md);display:inline-flex;align-items:center;justify-content:center;
+    cursor:pointer;color:var(--text-secondary);transition:all .12s}
+  .pg-icon:hover{background:var(--bg-hover);color:var(--text-primary)}
+  .pg-icon.disabled{color:var(--text-disabled);cursor:not-allowed}
+  .pg-icon.disabled:hover{background:transparent;color:var(--text-disabled)}
+  .pg-icon svg{width:16px;height:16px}
+
+  .pager{display:flex;align-items:center;gap:var(--sp-xs)}
+  .pager-full{display:flex;align-items:center;justify-content:space-between;width:100%;gap:var(--sp-lg)}
+  .pager-summary{font-size:13px;color:var(--text-secondary);white-space:nowrap}
+
+  /* 每頁筆數選單（沿用 E8D Select 樣式） */
+  .page-size{display:flex;align-items:center;gap:var(--sp-sm);color:var(--text-secondary);font-size:13px;white-space:nowrap}
+  .select{display:inline-flex;align-items:center;gap:var(--sp-sm);height:32px;padding:0 var(--sp-sm) 0 var(--sp-md);
+    border:1px solid var(--border-default);border-radius:var(--r-md);color:var(--text-primary);font-size:13px;cursor:pointer;background:var(--bg-surface)}
+  .select svg{width:14px;height:14px;color:var(--text-secondary)}
+
+  .left-group{display:flex;align-items:center;gap:var(--sp-xl)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title">Pagination 元件提案 v2</div>
+  <div class="page-sub">新增：首頁／末頁按鈕（«/»）+ 每頁筆數選單（沿用 Select 樣式）· 使用 E8D token</div>
+
+  <div class="sec-label">A. 加上首頁／末頁按鈕（中間頁狀態，四個 nav 都可點）</div>
+  <div class="demo">
+    <div class="pager-full">
+      <div class="pager-summary">共 128 筆，第 61–65 筆</div>
+      <div class="pager">
+        <div class="pg-icon" title="第一頁"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 17-5-5 5-5M10 17l-5-5 5-5"/></svg></div>
+        <div class="pg-icon" title="上一頁"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+        <div class="pg">1</div>
+        <div class="pg ellipsis">···</div>
+        <div class="pg">12</div>
+        <div class="pg active">13</div>
+        <div class="pg">14</div>
+        <div class="pg ellipsis">···</div>
+        <div class="pg">26</div>
+        <div class="pg-icon" title="下一頁"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        <div class="pg-icon" title="最後一頁"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 17 5-5-5-5M14 17l5-5-5-5"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-label">A. 第一頁時（首頁+上一頁 disabled）</div>
+  <div class="demo">
+    <div class="pager-full">
+      <div class="pager-summary">共 128 筆，第 1–5 筆</div>
+      <div class="pager">
+        <div class="pg-icon disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 17-5-5 5-5M10 17l-5-5 5-5"/></svg></div>
+        <div class="pg-icon disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+        <div class="pg active">1</div>
+        <div class="pg">2</div>
+        <div class="pg">3</div>
+        <div class="pg ellipsis">···</div>
+        <div class="pg">26</div>
+        <div class="pg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        <div class="pg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 17 5-5-5-5M14 17l5-5-5-5"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-label">B. 加上每頁筆數選單（左側，跟筆數摘要並排）</div>
+  <div class="demo">
+    <div class="pager-full">
+      <div class="left-group">
+        <div class="page-size">
+          每頁顯示
+          <div class="select">25<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          筆
+        </div>
+        <div class="pager-summary">共 128 筆，第 1–25 筆</div>
+      </div>
+      <div class="pager">
+        <div class="pg-icon disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 17-5-5 5-5M10 17l-5-5 5-5"/></svg></div>
+        <div class="pg-icon disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+        <div class="pg active">1</div>
+        <div class="pg">2</div>
+        <div class="pg">3</div>
+        <div class="pg ellipsis">···</div>
+        <div class="pg">6</div>
+        <div class="pg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        <div class="pg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 17 5-5-5-5M14 17l5-5-5-5"/></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="caption">「每頁顯示 [25▾] 筆」用 E8D Select 觸發樣式（縮小版，32px 高）；改變每頁筆數會連動右側總頁數（範例：25筆/頁時 128筆變成6頁）。</div>
+
+  <div class="caption" style="margin-top:var(--sp-2xl);color:var(--text-secondary)">
+    <b style="color:var(--text-primary)">待確認：</b>① 每頁筆數選項要哪些（例如 10/25/50/100）？② 每頁筆數選單要不要跟首頁/末頁按鈕同時出現在同一排（目前是分開示範，實際使用應該會共存）③ 首頁/末頁圖示（雙箭頭 «/»）這樣夠清楚嗎。
+  </div>
+</div>
+</body>
+</html>

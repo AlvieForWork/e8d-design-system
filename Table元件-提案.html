@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D · Table 元件提案</title>
+<style>
+  :root{
+    /* ===== E8D Token（取自設計系統定案值）===== */
+    /* neutral (slate 藍灰) */
+    --neutral-50:#F7F9FB; --neutral-100:#F0F4F7; --neutral-200:#E4E9EF;
+    --neutral-300:#D0D7DF; --neutral-400:#99A8B8; --neutral-500:#6A7F95;
+    --neutral-600:#495C6E; --neutral-700:#364759;
+    --white:#FFFFFF;
+    /* primary 橘 */
+    --primary-700:#FF6416; --primary-800:#FB5C13; --primary-900:#F04D0A;
+    --primary-50:#FFF2EB; /* ⚠️ 估計值，進 Figma 前用真實 primary/50 token 核對 */
+    /* 狀態色（TapTap 原色，200淺底/600圖示/700文字） */
+    --success-200:#E5F5EC; --success-600:#47B881; --success-700:#0C9D61;
+    --warning-200:#FFF7E1; --warning-600:#FFAD0D; --warning-700:#FE9B0E;
+    --danger-200:#FFEBEE;  --danger-600:#F64C4C;  --danger-700:#EC2D30;
+    --info-200:#E4F2FF;    --info-600:#3B82F6;    --info-700:#3A70E2;
+
+    /* ===== semantic ===== */
+    --bg-page:var(--neutral-50);
+    --bg-surface:var(--white);
+    --bg-hover:var(--neutral-50);      /* 列 hover */
+    --bg-selected:var(--primary-50);   /* 列選取 */
+    --text-primary:var(--neutral-700);
+    --text-secondary:var(--neutral-500);
+    --text-placeholder:var(--neutral-400);
+    --border-default:var(--neutral-200);
+    --border-strong:var(--neutral-300);
+
+    /* ===== spacing (4px grid) ===== */
+    --sp-xs:4px; --sp-sm:8px; --sp-md:12px; --sp-lg:16px; --sp-xl:24px; --sp-2xl:32px; --sp-3xl:48px;
+    /* ===== radius ===== */
+    --r-sm:4px; --r-md:8px; --r-lg:12px; --r-full:999px;
+    /* ===== shadow ===== */
+    --shadow-sm:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    --shadow-md:0 4px 8px rgba(16,24,40,.06), 0 2px 4px rgba(16,24,40,.04);
+
+    /* ===== type ===== */
+    --font:"Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--font);
+    background:var(--bg-page);
+    color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;
+    padding:var(--sp-3xl) var(--sp-xl);
+    font-size:14px; line-height:22px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+  .page-title{font-size:20px;line-height:28px;font-weight:700;margin-bottom:var(--sp-xs)}
+  .page-sub{font-size:14px;color:var(--text-secondary);margin-bottom:var(--sp-2xl)}
+  .section-label{font-size:13px;line-height:20px;font-weight:600;color:var(--text-secondary);
+    margin:var(--sp-2xl) 0 var(--sp-md);letter-spacing:.02em}
+
+  /* ===== 卡片外框 ===== */
+  .card{
+    background:var(--bg-surface);
+    border:1px solid var(--border-default);
+    border-radius:var(--r-lg);
+    box-shadow:var(--shadow-sm);
+    overflow:hidden;
+  }
+
+  /* ===== 工具列 ===== */
+  .toolbar{
+    display:flex;align-items:center;gap:var(--sp-md);
+    padding:var(--sp-lg);
+    border-bottom:1px solid var(--border-default);
+  }
+  .toolbar .spacer{flex:1}
+  .search{
+    display:flex;align-items:center;gap:var(--sp-sm);
+    height:36px;padding:0 var(--sp-md);
+    background:var(--bg-surface);
+    border:1px solid var(--border-default);
+    border-radius:var(--r-md);
+    min-width:260px;color:var(--text-placeholder);
+  }
+  .search input{border:0;outline:0;font:inherit;color:var(--text-primary);background:transparent;flex:1}
+  .search input::placeholder{color:var(--text-placeholder)}
+
+  /* Button 調性（沿用 E8D Button） */
+  .btn{
+    display:inline-flex;align-items:center;gap:var(--sp-sm);
+    height:36px;padding:0 var(--sp-lg);
+    border-radius:var(--r-md);font-size:14px;font-weight:500;line-height:1;
+    cursor:pointer;border:1px solid transparent;white-space:nowrap;
+  }
+  .btn-secondary{background:var(--bg-surface);border-color:var(--border-default);color:var(--text-primary)}
+  .btn-secondary:hover{border-color:var(--border-strong);background:var(--neutral-50)}
+  .btn-primary{background:var(--primary-700);color:#fff}
+  .btn-primary:hover{background:var(--primary-800)}
+  .btn-tertiary{background:transparent;color:var(--primary-700);padding:0 var(--sp-sm);height:28px}
+  .btn-tertiary:hover{background:var(--bg-hover)}
+  .btn-icon{background:transparent;border:0;color:var(--text-secondary);
+    width:28px;height:28px;padding:0;justify-content:center;border-radius:var(--r-md);cursor:pointer}
+  .btn-icon:hover{background:var(--bg-hover)}
+
+  /* ===== 表格 ===== */
+  table{width:100%;border-collapse:collapse}
+  thead th{
+    text-align:left;font-size:13px;line-height:20px;font-weight:600;
+    color:var(--text-secondary);
+    padding:var(--sp-md) var(--sp-lg);
+    background:var(--bg-surface);
+    border-bottom:1px solid var(--border-default);
+    white-space:nowrap;user-select:none;
+  }
+  .th-sort{cursor:pointer}
+  .th-sort .arrow{color:var(--text-placeholder);font-size:11px;margin-left:2px}
+  .th-sort.active{color:var(--text-primary)}
+  .th-sort.active .arrow{color:var(--primary-700)}
+
+  tbody td{
+    padding:var(--sp-lg);
+    border-bottom:1px solid var(--border-default);
+    vertical-align:middle;
+    font-size:14px;line-height:22px;
+  }
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:var(--bg-hover)}
+  tbody tr.selected{background:var(--bg-selected)}
+  tbody tr.selected:hover{background:var(--bg-selected)}
+
+  .col-check{width:48px;padding-left:var(--sp-lg);padding-right:0}
+  .recipient .name{font-weight:500;color:var(--text-primary)}
+  .recipient .phone{font-size:13px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+  .content-cell{max-width:280px;color:var(--text-secondary);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .time-cell{color:var(--text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cost-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .col-action{text-align:right;white-space:nowrap;width:120px}
+  .action-group{display:inline-flex;align-items:center;gap:var(--sp-xs);justify-content:flex-end}
+
+  /* ===== Checkbox（沿用 E8D Checkbox 橘勾）===== */
+  .cb{
+    width:18px;height:18px;border:1.5px solid var(--border-strong);
+    border-radius:var(--r-sm);background:var(--bg-surface);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    flex-shrink:0;transition:all .12s;
+  }
+  .cb svg{opacity:0}
+  .cb.checked{background:var(--primary-700);border-color:var(--primary-700)}
+  .cb.checked svg{opacity:1}
+  .cb.indeterminate{background:var(--primary-700);border-color:var(--primary-700)}
+  .cb.indeterminate::after{content:"";width:9px;height:1.5px;background:#fff;border-radius:1px}
+
+  /* ===== Badge dot 版（沿用 E8D Badge）===== */
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    height:24px;padding:0 var(--sp-md);border-radius:var(--r-full);
+    font-size:13px;line-height:1;font-weight:500;
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%}
+  .badge.success{background:var(--success-200);color:var(--success-700)} .badge.success .dot{background:var(--success-600)}
+  .badge.warning{background:var(--warning-200);color:var(--warning-700)} .badge.warning .dot{background:var(--warning-600)}
+  .badge.danger{background:var(--danger-200);color:var(--danger-700)}   .badge.danger .dot{background:var(--danger-600)}
+  .badge.info{background:var(--info-200);color:var(--info-700)}         .badge.info .dot{background:var(--info-600)}
+
+  /* ===== 批次操作列（選取後浮現示意）===== */
+  .bulkbar{
+    display:flex;align-items:center;gap:var(--sp-lg);
+    padding:var(--sp-md) var(--sp-lg);
+    background:var(--primary-50);
+    border-bottom:1px solid var(--border-default);
+    font-size:14px;
+  }
+  .bulkbar .count{font-weight:600;color:var(--primary-900)}
+  .bulkbar .spacer{flex:1}
+
+  /* ===== 分頁示意 ===== */
+  .pager{
+    display:flex;align-items:center;gap:var(--sp-lg);
+    padding:var(--sp-md) var(--sp-lg);
+    border-top:1px solid var(--border-default);
+    font-size:13px;color:var(--text-secondary);
+  }
+  .pager .spacer{flex:1}
+  .page-nums{display:flex;gap:var(--sp-xs)}
+  .page-nums .pg{min-width:32px;height:32px;padding:0 6px;border-radius:var(--r-md);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    color:var(--text-secondary);border:1px solid transparent;font-variant-numeric:tabular-nums}
+  .page-nums .pg:hover{background:var(--bg-hover)}
+  .page-nums .pg.active{background:var(--primary-700);color:#fff}
+  .page-nums .pg.nav{color:var(--text-secondary)}
+  .note-pager{font-size:12px;color:var(--text-placeholder);margin-top:var(--sp-sm)}
+
+  /* ===== 空狀態 ===== */
+  .empty{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:var(--sp-3xl) var(--sp-lg);text-align:center;gap:var(--sp-md);
+  }
+  .empty .ic{width:56px;height:56px;border-radius:var(--r-full);
+    background:var(--neutral-100);display:flex;align-items:center;justify-content:center;color:var(--neutral-400)}
+  .empty .t{font-size:16px;font-weight:600;color:var(--text-primary)}
+  .empty .d{font-size:14px;color:var(--text-secondary);max-width:320px}
+
+  .footnote{margin-top:var(--sp-2xl);font-size:12px;line-height:20px;color:var(--text-placeholder)}
+  .footnote b{color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title">Table 元件提案</div>
+  <div class="page-sub">簡訊發送紀錄場景 · 全部使用 E8D token · 沿用既有 Checkbox / Badge / Button</div>
+
+  <!-- ============ 主表格 ============ -->
+  <div class="section-label">預設狀態（含表頭排序、hover、選取）</div>
+  <div class="card">
+    <!-- 工具列 -->
+    <div class="toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input placeholder="搜尋收件人或內容">
+      </div>
+      <button class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+        篩選
+      </button>
+      <div class="spacer"></div>
+      <button class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        匯出
+      </button>
+    </div>
+
+    <!-- 批次操作列（選取後浮現） -->
+    <div class="bulkbar">
+      <span class="count">已選取 1 筆</span>
+      <button class="btn btn-tertiary">重新發送</button>
+      <button class="btn btn-tertiary">刪除</button>
+      <div class="spacer"></div>
+      <button class="btn-icon" title="關閉">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="col-check"><span class="cb indeterminate"></span></th>
+          <th>收件人</th>
+          <th>內容</th>
+          <th>狀態</th>
+          <th class="th-sort active">發送時間 <span class="arrow">▼</span></th>
+          <th class="cost-cell">計費點數</th>
+          <th class="col-action">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="selected">
+          <td class="col-check"><span class="cb checked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></td>
+          <td class="recipient"><div class="name">陳怡君</div><div class="phone">0912-345-678</div></td>
+          <td class="content-cell">【EVERY8D】您的驗證碼為 823145，請於 10 分鐘內完成驗證</td>
+          <td><span class="badge success"><span class="dot"></span>已送達</span></td>
+          <td class="time-cell">2026-07-27 09:12</td>
+          <td class="cost-cell">1</td>
+          <td class="col-action"><div class="action-group"><button class="btn btn-tertiary">詳情</button><button class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td class="col-check"><span class="cb"></span></td>
+          <td class="recipient"><div class="name">林大偉</div><div class="phone">0955-112-233</div></td>
+          <td class="content-cell">【好禮通知】您的紅利點數即將到期，快來兌換專屬優惠！</td>
+          <td><span class="badge info"><span class="dot"></span>傳送中</span></td>
+          <td class="time-cell">2026-07-27 09:10</td>
+          <td class="cost-cell">1</td>
+          <td class="col-action"><div class="action-group"><button class="btn btn-tertiary">詳情</button><button class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td class="col-check"><span class="cb"></span></td>
+          <td class="recipient"><div class="name">王小明</div><div class="phone">0933-888-999</div></td>
+          <td class="content-cell">【出貨通知】您訂購的商品已出貨，追蹤碼 SF123456789TW</td>
+          <td><span class="badge danger"><span class="dot"></span>發送失敗</span></td>
+          <td class="time-cell">2026-07-27 09:05</td>
+          <td class="cost-cell">—</td>
+          <td class="col-action"><div class="action-group"><button class="btn btn-tertiary">詳情</button><button class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td class="col-check"><span class="cb"></span></td>
+          <td class="recipient"><div class="name">張美玲</div><div class="phone">0966-554-321</div></td>
+          <td class="content-cell">【預約提醒】您明日 14:00 的門診預約，請準時報到</td>
+          <td><span class="badge warning"><span class="dot"></span>已排程</span></td>
+          <td class="time-cell">2026-07-28 08:00</td>
+          <td class="cost-cell">1</td>
+          <td class="col-action"><div class="action-group"><button class="btn btn-tertiary">詳情</button><button class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td class="col-check"><span class="cb"></span></td>
+          <td class="recipient"><div class="name">李俊宏</div><div class="phone">0977-246-810</div></td>
+          <td class="content-cell">【EVERY8D】您的驗證碼為 519267，請於 10 分鐘內完成驗證</td>
+          <td><span class="badge success"><span class="dot"></span>已送達</span></td>
+          <td class="time-cell">2026-07-27 08:58</td>
+          <td class="cost-cell">1</td>
+          <td class="col-action"><div class="action-group"><button class="btn btn-tertiary">詳情</button><button class="btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 分頁示意 -->
+    <div class="pager">
+      <span>共 128 筆，第 1–5 筆</span>
+      <div class="spacer"></div>
+      <div class="page-nums">
+        <span class="pg nav">‹</span>
+        <span class="pg active">1</span>
+        <span class="pg">2</span>
+        <span class="pg">3</span>
+        <span class="pg">…</span>
+        <span class="pg">26</span>
+        <span class="pg nav">›</span>
+      </div>
+    </div>
+  </div>
+  <div class="note-pager">↑ 底部分頁只是示意，Pagination 之後會單獨做成正式元件。</div>
+
+  <!-- ============ 空狀態 ============ -->
+  <div class="section-label">空狀態</div>
+  <div class="card">
+    <div class="empty">
+      <div class="ic">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 18z"/><path d="M8 9h8M8 12h5"/></svg>
+      </div>
+      <div class="t">尚無發送紀錄</div>
+      <div class="d">你還沒有送出任何簡訊，開始建立第一則發送任務吧。</div>
+      <button class="btn btn-primary" style="margin-top:4px">建立發送任務</button>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>設計決策：</b>純分隔線（不用斑馬紋）保持乾淨；列 hover 用 <b>bg/hover = neutral/50</b>、選取用淡橘底（primary/50，估計值待核）；外框卡片圓角 <b>lg 12</b> + <b>shadow/sm</b>；列高走舒適版（垂直內距 lg 16）。狀態欄＝既有 Badge dot 版、選取欄＝既有 Checkbox 橘勾、操作欄＝既有 Button 調性。<br>
+    <b>待確認：</b>① primary/50 淡橘底真實值 ② 列高要不要再收緊 ③ 密度是否需要「舒適／緊湊」兩種切換 ④ 內容欄截斷長度。
+  </div>
+</div>
+</body>
+</html>

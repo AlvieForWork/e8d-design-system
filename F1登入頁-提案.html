@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 登入頁 — 提案</title>
+<link rel="stylesheet" href="auth-tokens.css">
+<style>
+
+  /* ---------- 左側：資安意象 ---------- */
+  /* ---- 會飄動的光暈 ---- */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 每團光就是一個模糊的橘色圓形，靠 transform 緩慢位移來製造流動感 */
+  /* 時間全部由 JSON 的 speed:28 推算：28s 為基準，另外兩團錯開成 36s / 44s */
+
+  /* 使用者若在系統開了「減少動態效果」，就自動停下來 */
+
+  /* 顆粒質感：用 SVG 濾鏡即時產生，取代原本 45KB 的 base64 貼圖 */
+  /* 用彈性空白撐開版面比例，跟著面板高度縮放，不寫死 px。
+     比例 1 : 2.2 : 2.1（頂→logo、logo→標語、標語→底），量自參考版型：
+     logo 落在約 18% 高度、標語落在約 50%，底部留最大一片空白 */
+  /* 標題全白，橘色留給右邊的登入按鈕當唯一焦點 */
+
+  /* ---------- 右側：登入卡片 ----------
+     2026-07-31：卡片改用共用 .auth-card（不再是本頁專屬的 .login-card），
+     卡片本身／h1／subtitle 樣式全部改吃 auth-tokens.css，不再各頁自帶一份，
+     連帶消除「.login-card h1 選擇器太寬蓋掉巢狀 .result-hero h1」那個 collision */
+  .auth-card .pane { display: none; }
+  .auth-card .pane.active { display: block; }
+
+  /* ---- Floating label 欄位 ---- */
+
+  /* ---- 錯誤狀態 ---- */
+  .captcha-field.is-error {
+    border-color: var(--border-error);
+  }
+  .captcha-field.is-error:focus-within { box-shadow: var(--error-ring); }
+
+  /* 錯誤訊息：緊接在密碼欄下方，無底色無外框，圖示與文字同色 */
+  .form-alert {
+    display: none;
+    align-items: flex-start; gap: 6px;
+    font-size: 13px; line-height: 1.6;
+    margin: -2px 0 var(--space-md);
+  }
+  .form-alert.show { display: flex; }
+  .form-alert svg { flex-shrink: 0; margin-top: 2px; }
+  .form-alert b { font-weight: 600; }
+
+  /* 錯誤／最後警告／鎖定三種狀態統一用 error 色階 */
+  .form-alert.error { color: var(--text-error); }
+
+  /* 送出中／已鎖定：欄位變淡不可動（訊息本身不變淡，要保持可讀） */
+  .captcha-field.is-disabled { opacity: .55; pointer-events: none; }
+
+  /* ---- 驗證碼 ---- */
+  .captcha-field {
+    display: flex; align-items: center;
+    height: 56px;
+    padding-right: var(--space-sm);
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-field);
+    margin-bottom: var(--space-md);
+    transition: box-shadow .12s ease, border-color .12s ease;
+  }
+  .captcha-field:focus-within {
+    border-color: var(--border-focus);
+    box-shadow: var(--focus-ring);
+  }
+  .captcha-field .field-float { flex: 1; margin-bottom: 0; height: 100%; }
+  .captcha-field .field-float input {
+    height: 100%; border: none; background: transparent;
+  }
+  .captcha-field .field-float input:focus { border: none; box-shadow: none; }
+
+  .captcha-graphic {
+    position: relative;
+    flex: 0 0 88px; height: 36px;
+    margin-right: var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-default);
+    background-color: var(--neutral-100);
+    background-image:
+      radial-gradient(circle at 12% 30%, rgba(120,110,100,.45) 1px, transparent 1.2px),
+      radial-gradient(circle at 38% 75%, rgba(120,110,100,.4) 1px, transparent 1.2px),
+      radial-gradient(circle at 62% 20%, rgba(120,110,100,.45) 1px, transparent 1.2px),
+      radial-gradient(circle at 82% 65%, rgba(120,110,100,.4) 1px, transparent 1.2px),
+      radial-gradient(circle at 25% 55%, rgba(120,110,100,.35) 1px, transparent 1.2px),
+      radial-gradient(circle at 70% 45%, rgba(120,110,100,.4) 1px, transparent 1.2px);
+    background-size: 7px 7px, 9px 9px, 6px 6px, 8px 8px, 7px 7px, 10px 10px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .captcha-graphic::after {
+    content: "";
+    position: absolute; left: 6%; right: 6%; top: 50%;
+    height: 1px; background: rgba(90,80,72,.35);
+    transform: rotate(-4deg);
+  }
+  .captcha-text {
+    position: relative; z-index: 1;
+    display: inline-flex; gap: 2px;
+    font-size: 17px; font-weight: 700; letter-spacing: 1px;
+    color: var(--neutral-700); user-select: none;
+  }
+  .captcha-text span { display: inline-block; }
+  .captcha-refresh {
+    flex: 0 0 32px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-brand); cursor: pointer;
+    transition: background .12s ease;
+  }
+  /* icon 本身是橘的，hover 配淺橘底才不會出現橘配暖灰的髒感 */
+  .captcha-refresh:hover  { background: var(--bg-brand-hover); }
+  .captcha-refresh:active { background: var(--bg-brand-pressed); }
+
+  /* ---- 記住我 / 忘記密碼 ---- */
+  .meta-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: var(--space-lg) 0 var(--space-xl);
+  }
+  .remember {
+    display: flex; align-items: center; gap: var(--space-sm);
+    font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; user-select: none;
+  }
+  .remember input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .remember .box {
+    width: 18px; height: 18px;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .remember .box svg { opacity: 0; color: var(--neutral-white); }
+  .remember input:checked + .box {
+    background: var(--primary-700);
+    border-color: var(--primary-700);
+  }
+  .remember input:checked + .box svg { opacity: 1; }
+
+  .link {
+    font-size: 13px; color: var(--text-link); text-decoration: none;
+    transition: color .12s ease;
+  }
+  .link:hover { color: var(--info-700); }</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- 左側：資安意象 -->
+  <div class="visual-panel">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="visual-spacer-top" aria-hidden="true"></div>
+    <img class="visual-logo" src="logo_every8d_dark.svg" alt="EVERY8D">
+    <div class="visual-spacer-mid" aria-hidden="true"></div>
+    <div class="visual-copy">
+      <h1 class="visual-heading">每一次登入，<br>都經過<em>多重防護</em>驗證</h1>
+      <p class="visual-sub">帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+    </div>
+    <div class="visual-spacer-bottom" aria-hidden="true"></div>
+  </div>
+
+  <!-- 右側：登入卡片 -->
+  <div class="form-panel">
+    <div class="auth-card">
+
+      <!-- ========== 登入表單 ========== -->
+      <div class="pane active" id="loginPane">
+      <h1>歡迎回來</h1>
+      <p class="subtitle">登入 EVERY8D 簡訊發送平台</p>
+
+      <div class="form-body" id="formBody">
+        <!-- 帳號不限手機號（可為英數自訂帳號），勾了「記住我」再回來時直接帶出明碼 -->
+        <!-- 示範值刻意用非數字帳號，提醒工程師這欄不可只吃數字 -->
+        <div class="field-float" id="accountField">
+          <input id="account" type="text" placeholder=" " value="emma" autocomplete="username" spellcheck="false">
+          <label for="account">帳號</label>
+        </div>
+
+        <div class="field-float" id="passwordField">
+          <input id="password" class="has-icon" type="password" placeholder=" " value="Emma88888" autocomplete="current-password">
+          <label for="password">密碼</label>
+          <span class="eye-toggle" data-target="password">
+            <svg class="eye-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/>
+              <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/>
+              <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/>
+              <path d="m2 2 20 20"/>
+            </svg>
+          </span>
+        </div>
+
+        <!-- 錯誤／警示訊息：緊接帳密區塊，不透露帳號是否存在 -->
+        <div class="form-alert" id="formAlert">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="alertText"></span>
+        </div>
+
+        <div class="captcha-field" id="captchaField">
+          <div class="field-float">
+            <input id="captcha" type="text" placeholder=" ">
+            <label for="captcha">請輸入驗證碼</label>
+          </div>
+          <div class="captcha-graphic">
+            <span class="captcha-text">
+              <span style="transform:rotate(-8deg)">A</span><span style="transform:rotate(5deg)">F</span><span style="transform:rotate(-4deg)">G</span><span style="transform:rotate(7deg)">K</span>
+            </span>
+          </div>
+          <button type="button" class="captcha-refresh" title="更新驗證碼">
+            <!-- Lucide: rotate-cw -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 圖形驗證碼錯誤：不涉及身分，可以明確講，跟帳密的模糊訊息分開，不共用同一個 alert -->
+        <div class="form-alert" id="captchaAlert">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="captchaAlertText"></span>
+        </div>
+      </div>
+
+      <div class="meta-row">
+        <label class="remember">
+          <input type="checkbox" checked>
+          <span class="box">
+            <!-- Lucide: check -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </span>
+          記住我
+        </label>
+        <a class="link" href="F1-忘記密碼-提案.html">忘記密碼？</a>
+      </div>
+
+      <button class="btn btn-primary" id="loginBtn"><span id="loginLabel">登入</span></button>
+
+      <div class="footer-divider"></div>
+      <!-- 兩個並排連結用 .spread（大間距）；單一連結用預設的緊密間距 -->
+      <p class="footer-links spread">
+        <a href="#">申請帳號</a>
+        <a href="#">價格方案</a>
+      </p>
+      </div>
+
+      <!-- ========== 帳號權限已關閉（情境 A：帳密正確但帳號已關）==========
+           跟忘記密碼流程情境 B 共用同一組 .result-hero.error + 單顆 CTA 樣式，
+           但說明文字依入口分開寫（2026-07-31）：這裡是「帳密都對、登入當下發現已停用」，
+           忘記密碼頁是「OTP 通過後才發現要重設的帳號已停用」，情境不同不硬套同一句。
+           這裡沒有「聯繫管理員」按鈕——沒有標準的管理員聯絡入口，放了也是走不通的出口 -->
+      <div class="pane" id="blockedPane">
+        <div class="result-hero error">
+          <div class="circle">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+          </div>
+          <h1>帳號權限已關閉</h1>
+          <p>此帳號已停用，如需重新啟用請聯繫您的帳號管理員。</p>
+        </div>
+        <button class="btn btn-primary" id="blockedBtn"><span>返回登入</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- demo 狀態列（正式產品不會有） -->
+<div class="state-bar">
+  <span class="tag">狀態</span>
+  <button data-state="default" class="active">預設</button>
+  <button data-state="error">帳密錯誤</button>
+  <button data-state="lastchance">剩餘 1 次</button>
+  <button data-state="captcha-error">驗證碼錯誤</button>
+  <button data-state="loading">登入中</button>
+  <button data-state="locked">已鎖定</button>
+  <button data-state="disabled">帳號權限已關閉</button>
+  <span class="sep"></span>
+  <span class="tag">登入後導向</span>
+  <!-- demo 用：靜態原型沒有後端能真的判斷是否首次登入，
+       用這顆獨立開關模擬分岔，決定登入成功後走哪條 happy path -->
+  <button id="firstLoginToggle" data-first-login="false">首次登入：關</button>
+</div>
+
+<script>
+(function () {
+  var formAlert  = document.getElementById('formAlert');
+  var alertText  = document.getElementById('alertText');
+  var captchaAlert     = document.getElementById('captchaAlert');
+  var captchaAlertText = document.getElementById('captchaAlertText');
+  var captchaTextEl    = document.querySelector('.captcha-text');
+  var account    = document.getElementById('account');
+  var password   = document.getElementById('password');
+  var captcha    = document.getElementById('captcha');
+  var loginBtn   = document.getElementById('loginBtn');
+  var loginLabel = document.getElementById('loginLabel');
+  var fields     = ['accountField', 'passwordField', 'captchaField'].map(function (id) {
+    return document.getElementById(id);
+  });
+  var loginPane   = document.getElementById('loginPane');
+  var blockedPane = document.getElementById('blockedPane');
+  var blockedBtn  = document.getElementById('blockedBtn');
+
+  /* ---- 狀態切換 ---- */
+  function clearAll() {
+    fields.forEach(function (f) { f.classList.remove('is-error', 'is-disabled'); });
+    formAlert.classList.remove('show', 'error');
+    captchaAlert.classList.remove('show', 'error');
+    loginBtn.disabled = false;
+    loginLabel.textContent = '登入';
+    loginPane.classList.add('active');
+    blockedPane.classList.remove('active');
+  }
+
+  /* 圖形驗證碼：固定 4 個字位的擺動角度不變，只換字母 —— 錯誤時自動刷新，舊圖作廢 */
+  var CAPTCHA_ROTATIONS = ['-8deg', '5deg', '-4deg', '7deg'];
+  var CAPTCHA_CHARS = 'ACDEFGHJKLMNPQRTUVWXY'; // 排除易混淆的 B/I/O/S/Z/0/1
+  var currentCaptchaAnswer = 'AFGK'; // 追蹤目前顯示的驗證碼，供輸入比對
+  function randomCaptchaText() {
+    var s = '';
+    for (var i = 0; i < 4; i++) s += CAPTCHA_CHARS[Math.floor(Math.random() * CAPTCHA_CHARS.length)];
+    return s;
+  }
+  function refreshCaptcha() {
+    currentCaptchaAnswer = randomCaptchaText();
+    captchaTextEl.innerHTML = currentCaptchaAnswer.split('').map(function (ch, i) {
+      return '<span style="transform:rotate(' + CAPTCHA_ROTATIONS[i] + ')">' + ch + '</span>';
+    }).join('');
+  }
+
+  function disableFields() {
+    fields.forEach(function (f) { f.classList.add('is-disabled'); });
+  }
+
+  /* 顯示／隱藏密碼：跟其他頁共用同一套邏輯（icon 代表當前狀態） */
+  document.addEventListener('click', function (e) {
+    var toggle = e.target.closest('.eye-toggle');
+    if (!toggle) return;
+    var target = document.getElementById(toggle.dataset.target);
+    var reveal = target.type === 'password';
+    target.type = reveal ? 'text' : 'password';
+    toggle.classList.toggle('revealed', reveal);
+  });
+
+  document.querySelector('.captcha-refresh').addEventListener('click', refreshCaptcha);
+
+  captcha.addEventListener('input', function () {
+    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
+    captchaAlert.classList.remove('show', 'error');
+    document.getElementById('captchaField').classList.remove('is-error');
+  });
+
+  function setState(s) {
+    clearAll();
+
+    if (s === 'error') {
+      // 資安措辭：不透露帳號是否存在，一律「帳號或密碼錯誤」
+      fields[0].classList.add('is-error');
+      fields[1].classList.add('is-error');
+      formAlert.classList.add('show', 'error');
+      alertText.innerHTML = '帳號或密碼錯誤，還可以再嘗試 <b>3</b> 次';
+    }
+
+    if (s === 'lastchance') {
+      fields[0].classList.add('is-error');
+      fields[1].classList.add('is-error');
+      formAlert.classList.add('show', 'error');
+      alertText.innerHTML = '這是最後一次機會，再次輸入錯誤，帳號將鎖定 <b>30 分鐘</b>';
+    }
+
+    // 圖形驗證碼錯誤：不涉及身分，可以明確講；只標紅驗證碼欄，不動帳密欄，
+    // 訊息也不跟「帳號或密碼錯誤」共用，兩者分開不混用。錯誤當下自動換一張新圖，舊圖作廢
+    if (s === 'captcha-error') {
+      fields[2].classList.add('is-error');
+      captchaAlert.classList.add('show', 'error');
+      captchaAlertText.textContent = '驗證碼錯誤，請重新輸入';
+      refreshCaptcha();
+    }
+
+    if (s === 'loading') {
+      disableFields();
+      loginBtn.disabled = true;
+      loginLabel.innerHTML = '<span class="spinner"></span>';
+    }
+
+    if (s === 'locked') {
+      disableFields();
+      loginBtn.disabled = true;
+      loginLabel.textContent = '帳號已鎖定';
+      formAlert.classList.add('show', 'error');
+      alertText.innerHTML = '錯誤次數過多，帳號已鎖定，請於 <b>30 分鐘</b>後再試';
+    }
+
+    // 帳密正確、但帳號權限已關閉：整卡換成阻斷頁，不留表單這條無用的出口
+    if (s === 'disabled') {
+      loginPane.classList.remove('active');
+      blockedPane.classList.add('active');
+    }
+  }
+
+  blockedBtn.addEventListener('click', function () {
+    setState('default');
+    btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'default'); });
+  });
+
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      btns.forEach(function (x) { x.classList.toggle('active', x === b); });
+      setState(this.dataset.state);
+    });
+  });
+
+  // demo 帳密：跟欄位預設值一致，不改內容直接按登入就會成功
+  var DEMO_ACCOUNT  = 'emma';
+  var DEMO_PASSWORD = 'Emma88888';
+
+  // demo 用：靜態原型沒有後端能真的判斷「這個帳號是不是第一次登入」，
+  // 用這顆獨立開關模擬分岔，決定登入成功後走 happy path A（一般）還是 B（首次）
+  var firstLoginToggle = document.getElementById('firstLoginToggle');
+  var isFirstLogin = false;
+  firstLoginToggle.addEventListener('click', function () {
+    isFirstLogin = !isFirstLogin;
+    this.classList.toggle('active', isFirstLogin);
+    this.setAttribute('data-first-login', String(isFirstLogin));
+    this.textContent = '首次登入：' + (isFirstLogin ? '開' : '關');
+  });
+
+  // 按登入會跑 1.2 秒載入。驗證碼、帳密都對才算成功——
+  // 2FA 強制啟用：一般登入導向簡訊 OTP 驗證頁；首次登入導向強制改密碼（見上方 demo 開關）
+  loginBtn.addEventListener('click', function () {
+    setState('loading');
+    setTimeout(function () {
+      var captchaOk = captcha.value === currentCaptchaAnswer;
+      var credsOk = account.value === DEMO_ACCOUNT && password.value === DEMO_PASSWORD;
+
+      if (!captchaOk) {
+        setState('captcha-error');
+        btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'captcha-error'); });
+        return;
+      }
+      if (!credsOk) {
+        setState('error');
+        btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'error'); });
+        return;
+      }
+      // 帳密＋驗證碼都通過：依 demo 開關決定 happy path A 或 B
+      window.location.href = isFirstLogin
+        ? 'F1-強制變更密碼-提案.html'
+        : 'F1-2FA驗證頁-提案.html';
+    }, 1200);
+  });
+})();
+</script>
+
+</body>
+</html>

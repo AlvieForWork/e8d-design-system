@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D 字級/間距/圓角 — 發送紀錄頁</title>
+<style>
+:root{
+  /* Primary 橘 */
+  --primary-700:#FF6416; --primary-800:#E5570F; --primary-50:#FFF9F5; --primary-100:#FFDBC8;
+  /* Neutral slate */
+  --n-50:#F7F9FB; --n-100:#F0F4F7; --n-200:#E4E9EF; --n-300:#D0D7DF; --n-400:#99A8B8; --n-500:#6A7F95; --n-600:#495C6E; --n-700:#364759;
+  --text-primary:var(--n-700); --text-secondary:var(--n-500); --border:var(--n-200); --bg-page:var(--n-50);
+  /* Status (TapTap) */
+  --ok-bg:#E5F5EC; --ok-fg:#0C9D61; --ok-dot:#47B881;
+  --warn-bg:#FFF7E1; --warn-fg:#FE9B0E; --warn-dot:#FFAD0D;
+  --err-bg:#FFEBEE; --err-fg:#EC2D30; --err-dot:#F64C4C;
+  --info-bg:#E4F2FF; --info-fg:#3A70E2; --info-dot:#3B82F6;
+  /* Typography scale */
+  --font: "Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",-apple-system,sans-serif;
+  /* Spacing 4px grid */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s6:24px; --s8:32px; --s12:48px;
+  /* Radius */
+  --r-sm:4px; --r-md:8px; --r-lg:12px; --r-full:999px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:#E9EDF1;color:var(--text-primary);padding:var(--s8);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto var(--s8)}
+.note{font-size:13px;color:#5B6B7C;margin:0 0 var(--s3) 4px}
+.note b{color:#2B3A4A}
+
+/* ---- Type scale specimen ---- */
+.specimen{background:#fff;border:1px solid #DfE4EA;border-radius:var(--r-lg);padding:var(--s6);margin-bottom:var(--s8)}
+.specimen h3{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--n-500);text-transform:uppercase;margin-bottom:var(--s4)}
+.trow{display:flex;align-items:baseline;gap:var(--s6);padding:var(--s3) 0;border-bottom:1px solid var(--n-100)}
+.trow:last-child{border-bottom:none}
+.trow .meta{width:210px;flex-shrink:0;font-size:12px;color:var(--n-500)}
+.trow .meta b{color:var(--n-700);font-size:13px}
+.t-display{font-size:28px;line-height:36px;font-weight:700}
+.t-heading{font-size:20px;line-height:28px;font-weight:700}
+.t-subhead{font-size:16px;line-height:24px;font-weight:500}
+.t-body{font-size:14px;line-height:22px;font-weight:400}
+.t-small{font-size:13px;line-height:20px;font-weight:400;color:var(--n-500)}
+.t-caption{font-size:12px;line-height:16px;font-weight:500;color:var(--n-500)}
+
+/* ---- App ---- */
+.app{display:flex;background:var(--bg-page);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 8px 28px rgba(20,30,45,.10);border:1px solid #DfE4EA}
+.side{width:200px;background:#fff;border-right:1px solid var(--border);padding:var(--s4) 0;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:var(--s2);padding:0 var(--s4) var(--s4);font-size:18px;font-weight:800}
+.brand .dot{width:22px;height:22px;border-radius:var(--r-md);background:var(--primary-700)}
+.nav a{display:flex;align-items:center;gap:var(--s3);padding:10px var(--s4);font-size:14px;color:var(--text-secondary);text-decoration:none}
+.nav a .ic{width:16px;height:16px;border-radius:var(--r-sm);background:var(--n-300)}
+.nav a.on{color:var(--primary-800);background:var(--primary-50);font-weight:500;border-right:3px solid var(--primary-700)}
+.nav a.on .ic{background:var(--primary-700)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;padding:var(--s4) var(--s6);background:#fff;border-bottom:1px solid var(--border)}
+.top .t{font-size:16px;font-weight:500}
+.top .r{display:flex;align-items:center;gap:var(--s4);font-size:13px;color:var(--text-secondary)}
+.pts{background:var(--primary-50);color:var(--primary-800);padding:6px var(--s3);border-radius:var(--r-md);font-weight:500;font-size:13px}
+.ava{width:30px;height:30px;border-radius:var(--r-full);background:var(--n-300)}
+.body{padding:var(--s6);overflow:auto}
+.h1{font-size:28px;line-height:36px;font-weight:700;margin-bottom:var(--s1)}
+.sub{font-size:13px;line-height:20px;color:var(--text-secondary);margin-bottom:var(--s6)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin-bottom:var(--s6)}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s4)}
+.kpi .lab{font-size:13px;color:var(--text-secondary);margin-bottom:var(--s2);display:flex;align-items:center;gap:6px}
+.kpi .lab .d{width:8px;height:8px;border-radius:var(--r-full)}
+.kpi .num{font-size:24px;line-height:28px;font-weight:700}
+.kpi.ok .num{color:var(--ok-fg)} .kpi.ok .d{background:var(--ok-dot)}
+.kpi.err .num{color:var(--err-fg)} .kpi.err .d{background:var(--err-dot)}
+.kpi.info .num{color:var(--info-fg)} .kpi.info .d{background:var(--info-dot)}
+.kpi.tot .d{background:var(--n-400)}
+.filter{display:flex;gap:var(--s2);align-items:center;margin-bottom:var(--s4);flex-wrap:wrap}
+.field{background:#fff;border:1px solid var(--n-300);border-radius:var(--r-md);padding:var(--s2) var(--s3);font-size:14px;min-width:130px}
+.field.ph{color:var(--n-400)}
+.btn{background:var(--primary-700);color:#fff;border:none;border-radius:var(--r-md);padding:9px var(--s4);font-size:14px;font-weight:500;cursor:pointer}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:var(--s3) var(--s4);background:var(--n-50);color:var(--text-secondary);font-weight:500;font-size:13px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:13px var(--s4);border-bottom:1px solid var(--n-100)}
+tr:last-child td{border-bottom:none}
+.mono{font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 5px;border-radius:var(--r-full);font-size:12px;font-weight:500}
+.badge .ic{width:17px;height:17px;border-radius:var(--r-full);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.b-ok{background:var(--ok-bg);color:var(--ok-fg)} .b-ok .ic{background:var(--ok-dot)}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg)} .b-warn .ic{background:var(--warn-dot)}
+.b-err{background:var(--err-bg);color:var(--err-fg)} .b-err .ic{background:var(--err-dot)}
+.b-info{background:var(--info-bg);color:var(--info-fg)} .b-info .ic{background:var(--info-dot)}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:var(--r-sm);background:var(--n-100);color:var(--n-600)}
+.link{color:var(--info-fg);text-decoration:none;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="note"><b>字級 / 間距 / 圓角</b> 套進發送紀錄頁(最終配色)。字體=Inter(英數)+ PingFang TC 堆疊(中文)｜間距=4px 網格｜圓角=微圓 8px</p>
+
+  <!-- Type specimen -->
+  <div class="specimen">
+    <h3>Typography Scale</h3>
+    <div class="trow"><div class="meta"><b>Display</b><br>28 / 36 · Bold</div><div class="t-display">發送紀錄查詢 Dashboard</div></div>
+    <div class="trow"><div class="meta"><b>Heading</b><br>20 / 28 · Bold</div><div class="t-heading">今日發送概況 Overview</div></div>
+    <div class="trow"><div class="meta"><b>Subhead</b><br>16 / 24 · Medium</div><div class="t-subhead">收訊人選取設定</div></div>
+    <div class="trow"><div class="meta"><b>Body</b><br>14 / 22 · Regular</div><div class="t-body">簡訊內容與收訊門號會顯示在此,這是介面的主要內文字級。</div></div>
+    <div class="trow"><div class="meta"><b>Small</b><br>13 / 20 · Regular</div><div class="t-small">次要說明、輔助資訊、表格中的時間與門號。</div></div>
+    <div class="trow"><div class="meta"><b>Caption</b><br>12 / 16 · Medium</div><div class="t-caption">標籤、badge、欄位提示文字</div></div>
+  </div>
+
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><span class="dot"></span>EVERY8D</div>
+      <nav class="nav">
+        <a href="#"><span class="ic"></span>總覽</a>
+        <a href="#"><span class="ic"></span>簡訊發送</a>
+        <a class="on" href="#"><span class="ic"></span>發送紀錄</a>
+        <a href="#"><span class="ic"></span>統計報表</a>
+        <a href="#"><span class="ic"></span>點數管理</a>
+        <a href="#"><span class="ic"></span>帳號設定</a>
+      </nav>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <div class="t">發送紀錄查詢</div>
+        <div class="r"><span class="pts">剩餘點數 183.00</span><span>J.S.</span><span class="ava"></span></div>
+      </div>
+      <div class="body">
+        <div class="h1">發送紀錄查詢</div>
+        <div class="sub">查詢區間 2026/07/22 · 共 12,480 則發送紀錄</div>
+        <div class="kpis">
+          <div class="kpi tot"><div class="lab"><span class="d"></span>總發送</div><div class="num">12,480</div></div>
+          <div class="kpi ok"><div class="lab"><span class="d"></span>成功</div><div class="num">11,920</div></div>
+          <div class="kpi err"><div class="lab"><span class="d"></span>失敗</div><div class="num">384</div></div>
+          <div class="kpi info"><div class="lab"><span class="d"></span>傳送中</div><div class="num">176</div></div>
+        </div>
+        <div class="filter">
+          <span class="field">2026/07/22</span>
+          <span class="field ph">接收門號</span>
+          <span class="field ph">接收狀態</span>
+          <button class="btn">查詢</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>發送時間</th><th>接收門號</th><th>簡訊主旨</th><th>類型</th><th>點數</th><th>狀態</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="mono">07/22 14:32</td><td class="mono">0912-***-347</td><td>驗證碼通知</td><td><span class="tag">SMS</span></td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+              <tr><td class="mono">07/22 14:30</td><td class="mono">0928-***-115</td><td>訂單出貨通知</td><td><span class="tag">SMS</span></td><td class="mono">1</td><td><span class="badge b-info"><span class="ic">↻</span>傳送中</span></td><td><a class="link" href="#">明細</a></td></tr>
+              <tr><td class="mono">07/22 14:28</td><td class="mono">0955-***-882</td><td>週年慶生日優惠</td><td><span class="tag">MMS</span></td><td class="mono">2</td><td><span class="badge b-err"><span class="ic">✕</span>收訊失敗</span></td><td><a class="link" href="#">明細</a></td></tr>
+              <tr><td class="mono">07/22 13:50</td><td class="mono">0910-***-201</td><td>信用卡帳單提醒</td><td><span class="tag">SMS</span></td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+              <tr><td class="mono">07/22 09:00</td><td class="mono">0937-***-556</td><td>會員專屬活動邀請</td><td><span class="tag">SMS</span></td><td class="mono">1</td><td><span class="badge b-warn"><span class="ic">◷</span>已排程</span></td><td><a class="link" href="#">明細</a></td></tr>
+              <tr><td class="mono">07/22 08:45</td><td class="mono">0968-***-042</td><td>取件通知</td><td><span class="tag">SMS</span></td><td class="mono">1</td><td><span class="badge b-ok"><span class="ic">✓</span>成功</span></td><td><a class="link" href="#">明細</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

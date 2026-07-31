@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D Input 元件提案</title>
+<style>
+:root{
+  --primary-700:#FF6416; --primary-hover:#FB5C13; --primary-active:#F04D0A;
+  --n-50:#F7F9FB; --n-100:#F0F4F7; --n-200:#E4E9EF; --n-300:#D0D7DF; --n-400:#99A8B8; --n-500:#6A7F95; --n-600:#495C6E; --n-700:#364759;
+
+  --bg-page:var(--n-50); --bg-surface:#fff; --bg-input:#fff; --bg-disabled:var(--n-100);
+  --text-primary:var(--n-700); --text-secondary:var(--n-500); --text-disabled:var(--n-300); --text-danger:#EC2D30;
+  --border-default:var(--n-200); --border-hover:var(--n-300); --border-focus:var(--primary-700); --border-danger:#F64C4C;
+  --danger-bg:#FFEBEE;
+
+  --font: "Inter","PingFang TC","Microsoft JhengHei","Noto Sans TC",-apple-system,sans-serif;
+  --xs:4px; --sm:8px; --md:12px; --lg:16px; --xl:24px; --xl2:32px; --xl3:48px;
+  --r-sm:4px; --r-md:8px; --r-lg:12px; --r-full:999px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:#E9EDF1;color:var(--text-primary);padding:var(--xl2);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto}
+h1{font-size:28px;font-weight:700;margin-bottom:var(--xs)}
+.sub{font-size:14px;color:var(--text-secondary);margin-bottom:var(--xl2);line-height:1.6}
+.sub b{color:var(--text-primary)}
+
+.panel{background:#fff;border:1px solid #DFE4EA;border-radius:var(--r-lg);padding:var(--xl);margin-bottom:var(--xl2)}
+.panel h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.panel .desc{font-size:13px;color:var(--text-secondary);margin-bottom:var(--xl)}
+
+/* ---- matrix table ---- */
+table.matrix{width:100%;border-collapse:collapse}
+table.matrix th{text-align:left;font-size:13px;font-weight:500;color:var(--text-secondary);padding:0 var(--md) var(--md);border-bottom:1px solid var(--border-default)}
+table.matrix th:first-child{width:110px}
+table.matrix td{padding:var(--lg) var(--md);border-bottom:1px solid var(--n-100);vertical-align:middle}
+.chip{display:inline-block;background:var(--n-100);color:var(--n-600);font-size:13px;font-weight:500;padding:4px var(--sm);border-radius:var(--r-sm)}
+
+/* ---- input field ---- */
+.field-wrap{display:inline-flex;flex-direction:column;gap:6px;width:220px}
+.field-label{font-size:13px;font-weight:500;color:var(--text-primary)}
+.field{
+  display:flex;align-items:center;gap:var(--sm);
+  background:var(--bg-input);
+  border:1px solid var(--border-default);
+  border-radius:var(--r-md);
+  font-size:14px;color:var(--text-primary);
+  transition:border-color .12s, box-shadow .12s;
+}
+.field .ic{width:16px;height:16px;flex-shrink:0;stroke:var(--text-secondary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.field input{border:none;outline:none;background:transparent;font-family:inherit;font-size:inherit;color:inherit;width:100%}
+.field input::placeholder{color:var(--n-400)}
+
+.size-lg .field{height:40px;padding:0 var(--md)}
+.size-md .field{height:36px;padding:0 var(--md)}
+.size-sm .field{height:32px;padding:0 var(--sm)}
+
+.field.hover{border-color:var(--border-hover)}
+.field.focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(255,100,22,.16)}
+.field.disabled{background:var(--bg-disabled);border-color:var(--border-default)}
+.field.disabled input{color:var(--text-disabled)}
+.field.disabled input::placeholder{color:var(--text-disabled)}
+.field.disabled .ic{stroke:var(--text-disabled)}
+.field.error{border-color:var(--border-danger)}
+.field.error:focus-within, .field.error.focus{box-shadow:0 0 0 3px rgba(246,76,76,.16)}
+.field.search{border:none;background:var(--n-50);border-radius:var(--r-full)}
+.field.search input::placeholder{color:var(--n-400)}
+.helper{font-size:12px;color:var(--text-secondary)}
+.helper.err{color:var(--text-danger)}
+
+/* ---- icon usage row ---- */
+.icon-row{display:flex;gap:var(--xl2);flex-wrap:wrap}
+.icon-item{display:flex;flex-direction:column;gap:var(--sm);align-items:flex-start}
+.icon-item .cap{font-size:12px;color:var(--text-secondary);background:var(--n-100);padding:3px var(--sm);border-radius:var(--r-sm)}
+
+.note{background:var(--n-50);border:1px dashed var(--n-300);border-radius:var(--r-md);padding:var(--md) var(--lg);font-size:13px;color:var(--text-secondary);line-height:1.7;margin-top:var(--lg)}
+.note b{color:var(--text-primary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Input 元件提案</h1>
+  <p class="sub">走「外框樣式」（不是填色）——資料密集表單需要清楚的欄位邊界。顏色、圓角、間距都抓 Figma 裡已經定案的 token 真實色碼，尺寸對齊 Button（Small 32 / Medium 36 / Large 40）。這頁是 <b>HTML 原型</b>，方向確認後才會進 Figma 做成正式 component。</p>
+
+  <div class="panel">
+    <h2>尺寸 × 狀態</h2>
+    <div class="desc">Default / Hover / Focus / Disabled / Error</div>
+    <table class="matrix">
+      <tr>
+        <th></th><th>Default</th><th>Hover</th><th>Focus</th><th>Disabled</th><th>Error</th>
+      </tr>
+      <tr class="size-lg">
+        <td><span class="chip">Large</span></td>
+        <td><div class="field-wrap"><div class="field"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field hover"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field focus"><input placeholder="請輸入內容" value="輸入中"></div></div></td>
+        <td><div class="field-wrap"><div class="field disabled"><input placeholder="無法編輯" disabled></div></div></td>
+        <td><div class="field-wrap"><div class="field error"><input value="格式錯誤"></div><div class="helper err">請輸入正確的手機號碼格式</div></div></td>
+      </tr>
+      <tr class="size-md">
+        <td><span class="chip">Medium</span></td>
+        <td><div class="field-wrap"><div class="field"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field hover"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field focus"><input placeholder="請輸入內容" value="輸入中"></div></div></td>
+        <td><div class="field-wrap"><div class="field disabled"><input placeholder="無法編輯" disabled></div></div></td>
+        <td><div class="field-wrap"><div class="field error"><input value="格式錯誤"></div><div class="helper err">請輸入正確的手機號碼格式</div></div></td>
+      </tr>
+      <tr class="size-sm">
+        <td><span class="chip">Small</span></td>
+        <td><div class="field-wrap"><div class="field"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field hover"><input placeholder="請輸入內容"></div></div></td>
+        <td><div class="field-wrap"><div class="field focus"><input placeholder="請輸入內容" value="輸入中"></div></div></td>
+        <td><div class="field-wrap"><div class="field disabled"><input placeholder="無法編輯" disabled></div></div></td>
+        <td><div class="field-wrap"><div class="field error"><input value="格式錯誤"></div><div class="helper err">請輸入正確的手機號碼格式</div></div></td>
+      </tr>
+    </table>
+    <div class="note"><b>Focus 狀態</b>：這次加了外圈淺色 ring（主色 16% 透明度）取代單純換邊框色，記取 Button focus 外框幾乎看不見的教訓——這裡邊框依然換色，但額外加一層柔和光暈確保對比足夠。Error 同理用紅色 ring。</div>
+  </div>
+
+  <div class="panel">
+    <h2>帶 Label / Helper text</h2>
+    <div class="desc">實際表單使用情境，label 在上、helper text 在下</div>
+    <div style="display:flex;gap:var(--xl2);flex-wrap:wrap">
+      <div class="field-wrap size-md">
+        <div class="field-label">手機號碼</div>
+        <div class="field"><input placeholder="09xxxxxxxx"></div>
+        <div class="helper">用於接收簡訊發送結果通知</div>
+      </div>
+      <div class="field-wrap size-md">
+        <div class="field-label">簡訊內容</div>
+        <div class="field error"><input value="內容超過字數上限"></div>
+        <div class="helper err">已超過 70 字，將以多則簡訊計費</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Icon 用法</h2>
+    <div class="desc">跟 Button 用同一套 icon 插槽邏輯（leading / trailing 開關）</div>
+    <div class="icon-row">
+      <div class="icon-item">
+        <div class="field-wrap size-md">
+          <div class="field">
+            <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="搜尋收件人">
+          </div>
+        </div>
+        <span class="cap">Leading icon</span>
+      </div>
+      <div class="icon-item">
+        <div class="field-wrap size-md">
+          <div class="field">
+            <input placeholder="2026-07-23">
+            <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+        </div>
+        <span class="cap">Trailing icon</span>
+      </div>
+      <div class="icon-item">
+        <div class="field-wrap size-md">
+          <div class="field search">
+            <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="Search here...">
+            <span style="font-size:11px;color:var(--n-400);border:1px solid var(--border-default);border-radius:var(--r-sm);padding:1px 6px;flex-shrink:0">⌘K</span>
+          </div>
+        </div>
+        <span class="cap">搜尋樣式（pill 填色，之後全域搜尋再用）</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
