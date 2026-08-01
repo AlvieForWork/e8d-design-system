@@ -23,14 +23,20 @@
   /* ---------- 底部控制列（沿用 demo 狀態列的視覺語彙，但這頁預設顯示） ---------- */
   .ctrl-bar {
     position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
-    display: flex; align-items: center; gap: var(--space-md);
+    display: flex; flex-direction: column; gap: var(--space-sm);
     padding: var(--space-md) var(--space-lg);
     background: rgba(44,35,36,.94); backdrop-filter: blur(8px);
     border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); z-index: 50;
-    max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center;
+    max-width: calc(100vw - 32px);
     font-family: var(--font);
   }
+  .ctrl-row {
+    display: flex; align-items: center; gap: var(--space-md);
+    flex-wrap: wrap; justify-content: center;
+  }
   .ctrl-group { display: flex; align-items: center; gap: var(--space-sm); }
+  /* 呼吸參數只在「有呼吸」的模式下才有意義，其餘時候淡掉不可點 */
+  .ctrl-group.is-off { opacity: .35; pointer-events: none; }
   .ctrl-bar .tag {
     font-size: 11px; color: rgba(255,255,255,.5);
     letter-spacing: .3px; white-space: nowrap;
@@ -135,32 +141,58 @@
 <div class="ctrl-note" id="ctrlNote"></div>
 
 <div class="ctrl-bar">
-  <div class="ctrl-group">
-    <span class="tag">水波</span>
-    <button id="toggleRipples" class="active">開</button>
+  <div class="ctrl-row">
+    <div class="ctrl-group">
+      <span class="tag">水波</span>
+      <button id="toggleRipples" class="active">開</button>
+    </div>
+
+    <span class="sep"></span>
+
+    <!-- 這排是這頁的重點：動態要從哪來 -->
+    <div class="ctrl-group">
+      <span class="tag">動態來源</span>
+      <button data-mode="mouse">滑鼠劃過</button>
+      <button data-mode="breathe" class="active">自動呼吸</button>
+      <button data-mode="both">兩者都要</button>
+    </div>
+
+    <span class="sep"></span>
+
+    <div class="ctrl-group">
+      <span class="tag">光暈</span>
+      <button data-glow="float">浮在水面上</button>
+      <button data-glow="baked">畫進水底</button>
+      <button data-glow="off" class="active">拿掉</button>
+    </div>
   </div>
 
-  <span class="sep"></span>
+  <div class="ctrl-row">
+    <div class="ctrl-group" id="grpBreathe">
+      <span class="tag">呼吸間隔</span>
+      <input type="range" id="breatheInterval" min="1.5" max="12" step="0.5" value="5">
+      <span class="ctrl-val" id="breatheIntervalVal">5.0s</span>
+    </div>
 
-  <div class="ctrl-group">
-    <span class="tag">光暈</span>
-    <button data-glow="float" class="active">浮在水面上</button>
-    <button data-glow="baked">畫進水底</button>
-    <button data-glow="off">拿掉</button>
-  </div>
+    <div class="ctrl-group" id="grpBreatheStrength">
+      <span class="tag">呼吸幅度</span>
+      <input type="range" id="breatheStrength" min="0.002" max="0.05" step="0.002" value="0.012">
+      <span class="ctrl-val" id="breatheStrengthVal">0.012</span>
+    </div>
 
-  <span class="sep"></span>
+    <span class="sep"></span>
 
-  <div class="ctrl-group">
-    <span class="tag">波紋大小</span>
-    <input type="range" id="dropRadius" min="5" max="60" step="1" value="20">
-    <span class="ctrl-val" id="dropRadiusVal">20</span>
-  </div>
+    <div class="ctrl-group" id="grpDropRadius">
+      <span class="tag">波紋大小</span>
+      <input type="range" id="dropRadius" min="5" max="90" step="1" value="45">
+      <span class="ctrl-val" id="dropRadiusVal">45</span>
+    </div>
 
-  <div class="ctrl-group">
-    <span class="tag">折射強度</span>
-    <input type="range" id="perturbance" min="0.005" max="0.15" step="0.005" value="0.04">
-    <span class="ctrl-val" id="perturbanceVal">0.04</span>
+    <div class="ctrl-group">
+      <span class="tag">折射強度</span>
+      <input type="range" id="perturbance" min="0.005" max="0.15" step="0.005" value="0.04">
+      <span class="ctrl-val" id="perturbanceVal">0.04</span>
+    </div>
   </div>
 </div>
 
@@ -284,9 +316,13 @@
   }
 
   /* ---------- 狀態 ---------- */
-  var glowMode = 'float';     // float | baked | off
-  var ripplesOn = false;
-  var opts = { resolution: 512, dropRadius: 20, perturbance: 0.04 };
+  var glowMode   = 'off';       // float | baked | off
+  var motionMode = 'breathe';   // mouse | breathe | both
+  var ripplesOn  = false;
+  var opts = { resolution: 512, dropRadius: 45, perturbance: 0.04 };
+  // 呼吸的預設值：間隔 5 秒、幅度 0.012（library 的 hover 強度是 0.01、點擊是 0.14，
+  // 所以這個力道跟「輕輕劃過」差不多，只是半徑放大讓波形更柔）
+  var breathe = { interval: 5, strength: 0.012 };
 
   function currentBg() {
     // 底圖尺寸取面板實際像素（乘 devicePixelRatio 太吃記憶體，1x 對水波紋理已足夠）
@@ -301,9 +337,11 @@
         resolution: opts.resolution,
         dropRadius: opts.dropRadius,
         perturbance: opts.perturbance,
+        interactive: motionMode !== 'breathe',
         imageUrl: currentBg()
       });
       ripplesOn = true;
+      scheduleBreath();
     } catch (e) {
       // 多半是瀏覽器不支援 WebGL 浮點紋理
       panel.classList.remove('is-ripples');
@@ -313,9 +351,45 @@
 
   function stopRipples() {
     if (!ripplesOn) return;
+    clearTimeout(breathTimer);
     $panel.ripples('destroy');
     panel.classList.remove('is-ripples');
     ripplesOn = false;
+  }
+
+  /* ---------- 自動呼吸 ----------
+     不等使用者來劃，自己每隔幾秒在隨機位置輕輕漾一下，
+     把水波從「互動效果」變成「呼吸感」——不吸引游標、不需要操作，
+     但畫面是活的。取代原本那三團 CSS 光暈的飄動。
+     間隔刻意加 ±30% 隨機，固定節拍會像節拍器一樣被察覺。 */
+  var breathTimer = null;
+
+  function scheduleBreath() {
+    clearTimeout(breathTimer);
+    if (!ripplesOn || motionMode === 'mouse') return;
+
+    var delay = breathe.interval * 1000 * (0.7 + Math.random() * 0.6);
+    breathTimer = setTimeout(function () {
+      if (ripplesOn && motionMode !== 'mouse') {
+        // drop() 吃的是相對面板左上角的 px 座標
+        $panel.ripples('drop',
+          Math.random() * panel.offsetWidth,
+          Math.random() * panel.offsetHeight,
+          opts.dropRadius,
+          breathe.strength
+        );
+      }
+      scheduleBreath();
+    }, delay);
+  }
+
+  function applyMotionMode() {
+    if (ripplesOn) $panel.ripples('set', 'interactive', motionMode !== 'breathe');
+    // 只有滑鼠模式時，呼吸那兩個滑桿沒有意義，淡掉
+    var off = (motionMode === 'mouse');
+    document.getElementById('grpBreathe').classList.toggle('is-off', off);
+    document.getElementById('grpBreatheStrength').classList.toggle('is-off', off);
+    scheduleBreath();
   }
 
   function refreshBg() {
@@ -351,6 +425,20 @@
     }
   });
 
+  document.querySelectorAll('[data-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('[data-mode]').forEach(function (b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      motionMode = this.dataset.mode;
+      applyMotionMode();
+      showNote({
+        mouse:   '只有滑鼠劃過才會有波——不碰就完全靜止',
+        breathe: '不用碰它，自己每隔幾秒輕輕漾一下（滑鼠不觸發）',
+        both:    '自己會呼吸，滑過去也有反應'
+      }[motionMode]);
+    });
+  });
+
   document.querySelectorAll('[data-glow]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('[data-glow]').forEach(function (b) { b.classList.remove('active'); });
@@ -360,23 +448,35 @@
       showNote({
         float: '光暈浮在水面上：自己會飄，但不受水波折射',
         baked: '光暈畫進水底：跟著水波一起扭，但不會自己飄了',
-        off:   '只留漸層，所有動態都來自滑鼠'
+        off:   '只留漸層，動態全部來自水波'
       }[glowMode]);
     });
   });
 
-  function bindSlider(id, key, fmt) {
+  function bindSlider(id, fmt, onChange) {
     var input = document.getElementById(id);
     var val = document.getElementById(id + 'Val');
     input.addEventListener('input', function () {
       var v = parseFloat(this.value);
-      opts[key] = v;
       val.textContent = fmt(v);
-      if (ripplesOn) $panel.ripples('set', key, v);
+      onChange(v);
     });
   }
-  bindSlider('dropRadius', 'dropRadius', function (v) { return v; });
-  bindSlider('perturbance', 'perturbance', function (v) { return v.toFixed(3); });
+  bindSlider('dropRadius', function (v) { return v; }, function (v) {
+    opts.dropRadius = v;
+    if (ripplesOn) $panel.ripples('set', 'dropRadius', v);
+  });
+  bindSlider('perturbance', function (v) { return v.toFixed(3); }, function (v) {
+    opts.perturbance = v;
+    if (ripplesOn) $panel.ripples('set', 'perturbance', v);
+  });
+  bindSlider('breatheInterval', function (v) { return v.toFixed(1) + 's'; }, function (v) {
+    breathe.interval = v;
+    scheduleBreath();   // 立刻用新間隔重排，不用等這一輪跑完
+  });
+  bindSlider('breatheStrength', function (v) { return v.toFixed(3); }, function (v) {
+    breathe.strength = v;
+  });
 
   /* 視窗改變大小時底圖要重畫，否則水波紋理會被拉伸變形 */
   var resizeTimer;
@@ -385,14 +485,18 @@
     resizeTimer = setTimeout(refreshBg, 250);
   });
 
-  /* 使用者若開了「減少動態效果」就不自動啟動——與左側光暈的既有處理一致 */
+  /* 使用者若開了「減少動態效果」就不自動啟動——與左側光暈的既有處理一致。
+     呼吸模式尤其要守這條：它是自己會動的，沒有「不要碰就好」這個選項。 */
+  applyGlowMode();
+  applyMotionMode();
+
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     toggleBtn.textContent = '關';
     toggleBtn.classList.remove('active');
     showNote('偵測到系統開啟「減少動態效果」，水波預設關閉');
   } else {
     startRipples();
-    showNote('把游標移到左側畫面上劃看看');
+    showNote('這是呼吸模式：不用碰它，等幾秒看左邊');
   }
 })();
 </script>
