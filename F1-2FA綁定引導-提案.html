@@ -633,14 +633,15 @@
                  '\n\n每組備用碼只能使用一次，請妥善保存。\n\n' + codes.join('\n');
 
       if (kind === 'download') {
-        // Safari 對「沒插入 DOM 就點擊」的 blob 下載連結會忽略 download 屬性，
-        // 自己生一個 UUID 檔名（2026-08-01 實測抓到）。修法：先插入頁面再點，
-        // 且不立刻 revoke——太早收回 blob URL 在部分瀏覽器會讓下載中途失敗。
-        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
+        // Safari 對 Blob 產生的 blob: 網址常會忽略 <a download> 指定的檔名，
+        // 自己塞一個 UUID（appendChild/延後 revoke 都試過，2026-08-01 確認沒用）。
+        // 改用 File 物件（Blob 的子類別，多帶一個 name）——這是這個老 WebKit
+        // 問題唯一可靠的繞法，Safari 會認 File.name 當下載檔名。
+        var file = new File([text], 'every8d-備用碼.txt', { type: 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(file);
         var a = document.createElement('a');
         a.href = url;
-        a.download = 'every8d-備用碼.txt';
+        a.download = file.name;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
