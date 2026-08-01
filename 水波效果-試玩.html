@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登入頁左側 — 水波效果試玩</title>
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<style>
+  /* 這頁只放試玩專屬的樣式；左側視覺、卡片、欄位全部沿用 auth-tokens.css 的既有 class。
+     目的是讓「有沒有水波」以外的一切都跟 F1登入頁-提案.html 完全相同，才比得準。 */
+
+  /* jquery.ripples 會在 #ripple 內插一層 canvas 蓋住背景，
+     原本的子元素（logo、標語、光暈 div）都浮在它上面不受折射影響 */
+  .visual-panel { cursor: crosshair; }
+
+  /* 水波模式下要換成 canvas 生成的底圖，先把 CSS 漸層讓出來 */
+  .visual-panel.is-ripples { background: none; }
+
+  /* 光暈模式③：光暈畫進底圖時，上層那三顆 CSS 光暈要收起來 */
+  .visual-panel.glow-baked .glow { display: none; }
+  .visual-panel.glow-off    .glow { display: none; }
+
+  /* ---------- 底部控制列（沿用 demo 狀態列的視覺語彙，但這頁預設顯示） ---------- */
+  .ctrl-bar {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(44,35,36,.94); backdrop-filter: blur(8px);
+    border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); z-index: 50;
+    max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center;
+    font-family: var(--font);
+  }
+  .ctrl-group { display: flex; align-items: center; gap: var(--space-sm); }
+  .ctrl-bar .tag {
+    font-size: 11px; color: rgba(255,255,255,.5);
+    letter-spacing: .3px; white-space: nowrap;
+  }
+  .ctrl-bar .sep { width: 1px; height: 22px; background: rgba(255,255,255,.18); }
+  .ctrl-bar button {
+    font-family: var(--font); font-size: var(--fs-micro); font-weight: var(--fw-medium);
+    color: rgba(255,255,255,.75); background: none; border: none;
+    padding: 6px 11px; border-radius: var(--radius-full);
+    cursor: pointer; white-space: nowrap;
+    transition: background .12s ease, color .12s ease;
+  }
+  .ctrl-bar button:hover { background: rgba(255,255,255,.10); color: #fff; }
+  .ctrl-bar button.active { background: var(--primary-700); color: #fff; }
+
+  .ctrl-bar input[type=range] {
+    width: 96px; accent-color: var(--primary-700);
+    cursor: pointer;
+  }
+  .ctrl-val {
+    font-size: 11px; color: rgba(255,255,255,.9);
+    font-variant-numeric: tabular-nums;
+    min-width: 30px; text-align: right;
+  }
+
+  .ctrl-note {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+    font-size: 12px; color: rgba(255,255,255,.75);
+    background: rgba(44,35,36,.8); backdrop-filter: blur(6px);
+    padding: 6px 14px; border-radius: var(--radius-full);
+    z-index: 50; white-space: nowrap;
+    opacity: 0; transition: opacity .3s ease;
+    pointer-events: none;
+  }
+  .ctrl-note.show { opacity: 1; }
+
+  /* 不支援 WebGL 時的說明 */
+  .fallback-msg {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text-error); color: #fff;
+    padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-full);
+    font-size: var(--fs-caption); z-index: 60; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- 左側：跟 F1登入頁-提案.html 完全相同的結構，只多了 id="ripple" -->
+  <div class="visual-panel" id="ripple">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="visual-spacer-top" aria-hidden="true"></div>
+    <img class="visual-logo" src="logo_every8d_dark.svg" alt="EVERY8D">
+    <div class="visual-spacer-mid" aria-hidden="true"></div>
+    <div class="visual-copy">
+      <h1 class="visual-heading">每一次登入，<br>都經過<em>多重防護</em>驗證</h1>
+      <p class="visual-sub">帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+    </div>
+    <div class="visual-spacer-bottom" aria-hidden="true"></div>
+  </div>
+
+  <!-- 右側：登入卡片的靜態複製（純視覺，沒有登入邏輯）——
+       放它是為了判斷「左側加了水波之後，右側表單還是不是視覺主角」 -->
+  <div class="form-panel">
+    <div class="auth-card">
+      <h1>歡迎回來</h1>
+      <p class="subtitle">登入 EVERY8D 簡訊發送平台</p>
+
+      <div class="form-body">
+        <div class="field-float">
+          <input type="text" placeholder=" " value="emma" spellcheck="false">
+          <label>帳號</label>
+        </div>
+        <div class="field-float">
+          <input class="has-icon" type="password" placeholder=" " value="Emma88888">
+          <label>密碼</label>
+        </div>
+      </div>
+
+      <div class="meta-row" style="display:flex;align-items:center;justify-content:space-between;margin:var(--space-lg) 0 var(--space-xl)">
+        <span style="font-size:13px;color:var(--text-secondary)">記住我</span>
+        <a href="#" style="font-size:13px;color:var(--text-link);text-decoration:none">忘記密碼？</a>
+      </div>
+
+      <button class="btn btn-primary"><span>登入</span></button>
+
+      <div class="footer-divider"></div>
+      <p class="footer-links spread">
+        <a href="#">申請帳號</a>
+        <a href="#">價格方案</a>
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<div class="fallback-msg" id="fallbackMsg">這個瀏覽器不支援 WebGL，水波效果無法顯示</div>
+<div class="ctrl-note" id="ctrlNote"></div>
+
+<div class="ctrl-bar">
+  <div class="ctrl-group">
+    <span class="tag">水波</span>
+    <button id="toggleRipples" class="active">開</button>
+  </div>
+
+  <span class="sep"></span>
+
+  <div class="ctrl-group">
+    <span class="tag">光暈</span>
+    <button data-glow="float" class="active">浮在水面上</button>
+    <button data-glow="baked">畫進水底</button>
+    <button data-glow="off">拿掉</button>
+  </div>
+
+  <span class="sep"></span>
+
+  <div class="ctrl-group">
+    <span class="tag">波紋大小</span>
+    <input type="range" id="dropRadius" min="5" max="60" step="1" value="20">
+    <span class="ctrl-val" id="dropRadiusVal">20</span>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="tag">折射強度</span>
+    <input type="range" id="perturbance" min="0.005" max="0.15" step="0.005" value="0.04">
+    <span class="ctrl-val" id="perturbanceVal">0.04</span>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.ripples@0.6.3/dist/jquery.ripples.min.js"></script>
+<script>
+(function () {
+  var panel = document.getElementById('ripple');
+  var $panel = $('#ripple');
+
+  /* ============================================================
+     底圖生成：jquery.ripples 只折射 background-image 的 url()，
+     CSS 漸層它讀不到。所以要把左側那面漸層「畫成一張圖」再餵給它。
+
+     ⚠️ 關鍵：登入頁用的是 `linear-gradient(135deg in oklab, ...)`。
+     canvas 的 createLinearGradient 只會做 sRGB 線性插值，中段會偏濁偏暗，
+     顏色跟現行登入頁對不上——設計師一眼就看得出來。
+     所以下面自己實作 oklab 插值，算出多個色標再交給 canvas，
+     讓底圖顏色跟 CSS 版本一致。
+     ============================================================ */
+
+  // --- sRGB ↔ oklab 轉換（公式取自 Björn Ottosson 的 oklab 定義） ---
+  function srgbToLinear(c) {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+  function linearToSrgb(c) {
+    var v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+    return Math.round(Math.max(0, Math.min(1, v)) * 255);
+  }
+  function hexToOklab(hex) {
+    var r = srgbToLinear(parseInt(hex.slice(1, 3), 16));
+    var g = srgbToLinear(parseInt(hex.slice(3, 5), 16));
+    var b = srgbToLinear(parseInt(hex.slice(5, 7), 16));
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [
+      0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    ];
+  }
+  function oklabToRgbString(L, a, bb) {
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * bb;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * bb;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * bb;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    return 'rgb(' +
+      linearToSrgb(+4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s) + ',' +
+      linearToSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s) + ',' +
+      linearToSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s) + ')';
+  }
+
+  // 登入頁的漸層：#FF6416 0% → #1A1512 34%（34% 之後維持深色）
+  var C0 = hexToOklab('#FF6416');
+  var C1 = hexToOklab('#1A1512');
+
+  function addOklabStops(grad, from, to) {
+    // 切 12 段逼近 oklab 的連續插值，肉眼已看不出階梯
+    var STEPS = 12;
+    for (var i = 0; i <= STEPS; i++) {
+      var t = i / STEPS;
+      grad.addColorStop(
+        from + (to - from) * t,
+        oklabToRgbString(
+          C0[0] + (C1[0] - C0[0]) * t,
+          C0[1] + (C1[1] - C0[1]) * t,
+          C0[2] + (C1[2] - C0[2]) * t
+        )
+      );
+    }
+  }
+
+  /* 把左側面板畫成一張底圖。bakeGlow=true 時連光暈一起畫進去，
+     那三團光就會跟著水波一起被折射（水底發光的感覺）；
+     false 則只畫漸層，光暈交給上層的 CSS div 自己飄。 */
+  function makeBackground(w, h, bakeGlow) {
+    var cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    var ctx = cv.getContext('2d');
+
+    /* 重現 CSS 的 `linear-gradient(135deg, ...)`。
+       不能偷懒用 createLinearGradient(0,0,w,h)——那是「面板對角線」，
+       角度會跟著長寬比跑（這面板是 42.2°，不是 45°）。
+       CSS 的規則是：角度從「向上」順時針起算，
+       漸層線長度 L = |w·sin A| + |h·cos A|，並以面板中心為軸對稱。 */
+    var A = 135 * Math.PI / 180;
+    var dx = Math.sin(A), dy = -Math.cos(A);          // 135deg → 指向右下
+    var L = Math.abs(w * dx) + Math.abs(h * dy);
+    var grad = ctx.createLinearGradient(
+      w / 2 - dx * L / 2, h / 2 - dy * L / 2,
+      w / 2 + dx * L / 2, h / 2 + dy * L / 2
+    );
+    addOklabStops(grad, 0, 0.34);
+    grad.addColorStop(1, oklabToRgbString(C1[0], C1[1], C1[2]));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    if (bakeGlow) {
+      // 對應 CSS 的 .glow-a/b/c：位置、尺寸、透明度照抄，
+      // blur(90px) 用 canvas filter 重現（比例依畫布縮放）
+      var scale = w / panel.offsetWidth;
+      ctx.filter = 'blur(' + (90 * scale) + 'px)';
+      ctx.fillStyle = '#FF6416';
+      [
+        { d: 300, x: w - (-120 + 150) * scale, y: h - h * 0.04 - 150 * scale, o: 0.18 },
+        { d: 220, x: w * 0.06 + 110 * scale,   y: h * 0.40 + 110 * scale,     o: 0.10 },
+        { d: 240, x: (-60 + 120) * scale,      y: (-50 + 120) * scale,        o: 0.16 }
+      ].forEach(function (g) {
+        ctx.globalAlpha = g.o;
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, g.d / 2 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
+    }
+
+    return cv.toDataURL('image/png');   // data URI 不會觸發 CORS，不用外部圖檔
+  }
+
+  /* ---------- 狀態 ---------- */
+  var glowMode = 'float';     // float | baked | off
+  var ripplesOn = false;
+  var opts = { resolution: 512, dropRadius: 20, perturbance: 0.04 };
+
+  function currentBg() {
+    // 底圖尺寸取面板實際像素（乘 devicePixelRatio 太吃記憶體，1x 對水波紋理已足夠）
+    return makeBackground(panel.offsetWidth, panel.offsetHeight, glowMode === 'baked');
+  }
+
+  function startRipples() {
+    if (ripplesOn) return;
+    try {
+      panel.classList.add('is-ripples');
+      $panel.ripples({
+        resolution: opts.resolution,
+        dropRadius: opts.dropRadius,
+        perturbance: opts.perturbance,
+        imageUrl: currentBg()
+      });
+      ripplesOn = true;
+    } catch (e) {
+      // 多半是瀏覽器不支援 WebGL 浮點紋理
+      panel.classList.remove('is-ripples');
+      document.getElementById('fallbackMsg').style.display = 'block';
+    }
+  }
+
+  function stopRipples() {
+    if (!ripplesOn) return;
+    $panel.ripples('destroy');
+    panel.classList.remove('is-ripples');
+    ripplesOn = false;
+  }
+
+  function refreshBg() {
+    if (ripplesOn) $panel.ripples('set', 'imageUrl', currentBg());
+  }
+
+  function applyGlowMode() {
+    panel.classList.toggle('glow-baked', glowMode === 'baked');
+    panel.classList.toggle('glow-off',   glowMode === 'off');
+    refreshBg();
+  }
+
+  /* ---------- 控制列 ---------- */
+  var note = document.getElementById('ctrlNote'), noteTimer;
+  function showNote(text) {
+    note.textContent = text;
+    note.classList.add('show');
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function () { note.classList.remove('show'); }, 2600);
+  }
+
+  var toggleBtn = document.getElementById('toggleRipples');
+  toggleBtn.addEventListener('click', function () {
+    if (ripplesOn) {
+      stopRipples();
+      this.textContent = '關';
+      this.classList.remove('active');
+      showNote('已關閉水波，這就是目前登入頁的樣子');
+    } else {
+      startRipples();
+      this.textContent = '開';
+      this.classList.add('active');
+    }
+  });
+
+  document.querySelectorAll('[data-glow]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('[data-glow]').forEach(function (b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      glowMode = this.dataset.glow;
+      applyGlowMode();
+      showNote({
+        float: '光暈浮在水面上：自己會飄，但不受水波折射',
+        baked: '光暈畫進水底：跟著水波一起扭，但不會自己飄了',
+        off:   '只留漸層，所有動態都來自滑鼠'
+      }[glowMode]);
+    });
+  });
+
+  function bindSlider(id, key, fmt) {
+    var input = document.getElementById(id);
+    var val = document.getElementById(id + 'Val');
+    input.addEventListener('input', function () {
+      var v = parseFloat(this.value);
+      opts[key] = v;
+      val.textContent = fmt(v);
+      if (ripplesOn) $panel.ripples('set', key, v);
+    });
+  }
+  bindSlider('dropRadius', 'dropRadius', function (v) { return v; });
+  bindSlider('perturbance', 'perturbance', function (v) { return v.toFixed(3); });
+
+  /* 視窗改變大小時底圖要重畫，否則水波紋理會被拉伸變形 */
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(refreshBg, 250);
+  });
+
+  /* 使用者若開了「減少動態效果」就不自動啟動——與左側光暈的既有處理一致 */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    toggleBtn.textContent = '關';
+    toggleBtn.classList.remove('active');
+    showNote('偵測到系統開啟「減少動態效果」，水波預設關閉');
+  } else {
+    startRipples();
+    showNote('把游標移到左側畫面上劃看看');
+  }
+})();
+</script>
+
+</body>
+</html>
