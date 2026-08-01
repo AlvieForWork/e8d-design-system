@@ -583,6 +583,15 @@
   // demo 固定測試碼，跟 2FA 兩頁同一組；輸錯走下方 showOtpError() 的遞減與鎖定
   var CORRECT_OTP = '123456';
 
+  /* 2026-08-01：帳號狀態的分岔改用測試手機號觸發，取代 demo 狀態列直接跳畫面。
+     判斷放在 OTP 驗證通過之後才做——維持「先證明持有該手機、才揭露帳號狀態」
+     的原則，不會變成沒驗證身份就能查帳號狀態的列舉管道。
+     其他任何符合格式的號碼一律走正常路徑，PM 誤打別的號碼不會卡住。 */
+  var PHONE_OUTCOMES = {
+    '0900000002': 'disabled',
+    '0900000003': 'notOwner'
+  };
+
   function doVerify() {
     otpRow.classList.add('is-loading');
     verifyBtn.disabled = true;
@@ -590,8 +599,10 @@
     setTimeout(function () {
       otpRow.classList.remove('is-loading');
       verifyLabel.textContent = '驗證';
-      if (otpValue() === CORRECT_OTP) goStep3();
-      else showOtpError();
+      if (otpValue() !== CORRECT_OTP) { showOtpError(); return; }
+      var outcome = PHONE_OUTCOMES[phone.value];
+      if (outcome) showBlocked(outcome);
+      else goStep3();
     }, 1000);
   }
 
@@ -764,7 +775,10 @@
      「這號碼的帳號已關閉／非母帳號」，等於沒驗證身份就洩漏帳號狀態，
      給攻擊者一個帳號列舉的管道，違背當初把忘記密碼／忘記帳號合併成
      單一 OTP 流程要防的事。stepper 因此比照「逾時」用預設 logical（不傳
-     stopAt），呈現步驟①②已完成、卡在③之前，而不是卡在步驟①。 */
+     stopAt），呈現步驟①②已完成、卡在③之前，而不是卡在步驟①。
+     2026-08-01：正式觸發點改成 doVerify() 裡的 PHONE_OUTCOMES（測試手機號
+     0900000002／0900000003），demo 狀態列的 s2-disabled／s2-notowner
+     兩顆按鈕保留給不想重跑一次 OTP 流程時的快速預覽用。 */
   var BLOCKED = {
     disabled: {
       // 2026-07-31：改成依入口各自的文案（子帳號版；母帳號版之後再補）。
