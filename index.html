@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 登入與帳號安全 — 流程總覽</title>
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<script src="demo-mode.js?v=20260801"></script>
+<style>
+
+  /* ---------- 右側：卡片 ---------- */
+  /* 一顆按鈕代表一條完整流程，按鈕下方接一行說明；
+     三組垂直排列，用大間距分組，跟按鈕內部的緊密間距做出層次區別 */
+  .flow-entry { margin-bottom: var(--space-2xl); }
+  .flow-entry:last-child { margin-bottom: 0; }
+  .flow-caption {
+    margin: var(--space-sm) 0 0;
+    font-size: var(--fs-caption); line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- 左側：品牌區（所有登入前頁面共用同一份） -->
+  <div class="visual-panel">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="visual-spacer-top" aria-hidden="true"></div>
+    <img class="visual-logo" src="logo_every8d_dark.svg" alt="EVERY8D">
+    <div class="visual-spacer-mid" aria-hidden="true"></div>
+    <div class="visual-copy">
+      <h1 class="visual-heading">每一次登入，<br>都經過<em>多重防護</em>驗證</h1>
+      <p class="visual-sub">帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+    </div>
+    <div class="visual-spacer-bottom" aria-hidden="true"></div>
+  </div>
+
+  <!-- 右側：流程選單卡片 -->
+  <div class="form-panel">
+    <div class="auth-card is-wide">
+      <h1>登入與帳號安全 — 流程總覽</h1>
+      <p class="subtitle">點選以下任一項，即可從頭走完一條完整流程。</p>
+
+      <div class="flow-entry">
+        <button class="btn btn-primary" id="flowNormal"><span>一般登入流程</span></button>
+        <p class="flow-caption">日常登入，通過簡訊驗證後進入平台</p>
+      </div>
+
+      <div class="flow-entry">
+        <button class="btn btn-primary" id="flowFirst"><span>首次登入設定流程</span></button>
+        <p class="flow-caption">第一次登入，設定密碼與雙重驗證後進入平台</p>
+      </div>
+
+      <div class="flow-entry">
+        <button class="btn btn-primary" id="flowForgot"><span>忘記密碼／找回帳密流程</span></button>
+        <p class="flow-caption">忘記密碼時，驗證身分後重設密碼</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  document.getElementById('flowNormal').addEventListener('click', function () {
+    window.location.href = 'F1登入頁-提案.html';
+  });
+  document.getElementById('flowFirst').addEventListener('click', function () {
+    // 帶參數讓登入頁一載入就先切成「首次登入」狀態，不用自己找那顆切換鈕
+    window.location.href = 'F1登入頁-提案.html?first=1';
+  });
+  document.getElementById('flowForgot').addEventListener('click', function () {
+    window.location.href = 'F1登入頁-提案.html';
+  });
+})();
+</script>
+
+</body>
+</html>

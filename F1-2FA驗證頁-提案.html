@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 2FA 簡訊驗證頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css">
-<script src="otp-shared.js"></script>
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<script src="demo-mode.js?v=20260801"></script>
+<script src="otp-shared.js?v=20260801"></script>
 <style>
 
   /* 表單／驗證已逾時互斥切換 */
@@ -52,7 +53,9 @@
     font-family: var(--font);
     font-size: 18px; font-weight: 600;
     letter-spacing: 4px;
-    text-transform: uppercase;
+    /* 備用碼在綁定引導頁是用小寫產生的，這裡就不轉大寫——
+       使用者貼上後看到的字要跟自己保存那份長得一樣，否則會以為貼錯 */
+    text-transform: lowercase;
     color: var(--text-primary);
     background: var(--bg-input);
     border: 1px solid var(--border-default);
@@ -250,11 +253,26 @@
     else { otp.reset(); otp.startCountdown(56); }
   });
 
-  /* ---------- 備用碼模式：這頁獨有，不進共用模組。
-     備用碼的「正確答案」在 2FA 綁定引導頁隨機產生，這裡沒有真正串接資料，
-     demo 一律走錯誤展示，維持原本行為 ---------- */
+  /* ---------- 備用碼模式：這頁獨有，不進共用模組 ----------
+     正確答案來自 2FA 綁定引導頁（步驟③）產生的那 10 組，透過 localStorage 傳過來，
+     所以「先跑一次首次登入設定、把備用碼複製下來，再回登入頁改用備用碼」這條路
+     是真的能走通的，連「每組只能用一次」也會實際生效（用過即從清單移除）。
+     若沒跑過綁定流程（localStorage 是空的），退回原本行為：一律判錯。 */
+  function loadBackupCodes() {
+    try { return JSON.parse(localStorage.getItem('e8d-backup-codes')) || []; }
+    catch (e) { return []; }
+  }
+  function consumeBackupCode(code) {
+    var list = loadBackupCodes();
+    var i = list.indexOf(code.toLowerCase());   // 產生時是小寫，比對前統一
+    if (i === -1) return false;
+    list.splice(i, 1);                          // 每組只能用一次
+    try { localStorage.setItem('e8d-backup-codes', JSON.stringify(list)); } catch (e) {}
+    return true;
+  }
+
   backupInput.addEventListener('input', function () {
-    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, BACKUP_LEN);
+    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, BACKUP_LEN);
     clearBackupError();
     submitBtn.disabled = this.value.length !== BACKUP_LEN;
     if (this.value.length === BACKUP_LEN) verifyBackup();
@@ -272,7 +290,8 @@
     setTimeout(function () {
       backupField.classList.remove('is-loading');
       submitLbl.textContent = '驗證';
-      showBackupError();
+      if (consumeBackupCode(backupInput.value)) showSuccess();
+      else showBackupError();
     }, 1200);
   }
 

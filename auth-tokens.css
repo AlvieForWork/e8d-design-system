@@ -678,8 +678,12 @@ body {
 
 /* ============================================================
    demo 狀態切換列（僅原型使用，正式產品不會有）
+   ------------------------------------------------------------
+   預設收起來——多數錯誤狀態 PM 直接操作就能觸發，不需要這排按鈕。
+   網址加 ?demo=1 才顯示（見 demo-mode.js），給 PM 的網址保持乾淨。
    ============================================================ */
-.state-bar {
+.state-bar { display: none; }
+html.demo-on .state-bar {
   position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
   display: flex; align-items: center; gap: var(--space-xs);
   padding: var(--space-sm) 10px;

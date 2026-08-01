@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 強制變更密碼 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css">
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<script src="demo-mode.js?v=20260801"></script>
 <style>
   /* 這頁獨有的版面樣式；顏色／間距／圓角／字級一律走 auth-tokens.css 的 token */
 
@@ -58,6 +59,32 @@
   <!-- 右側：卡片 -->
   <div class="form-panel">
     <div class="auth-card">
+
+      <!-- 首次登入的完整 stepper（跨頁）：設定密碼 → 驗證手機 → 保存備用碼 → 完成。
+           這頁是步驟①，②③在 F1-2FA綁定引導-提案.html 接續，共用同一套 .steps 元件，
+           只有首次登入情境顯示（密碼過期是既有帳號、不需要再走 2FA 設定，見 applyScene）-->
+      <div class="steps" id="steps">
+        <div class="step current" data-step="1">
+          <span class="step-dot">
+            <span class="num">1</span>
+            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">設定密碼</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" data-step="2">
+          <span class="step-dot">
+            <span class="num">2</span>
+            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">驗證手機</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" data-step="3">
+          <span class="step-dot">
+            <span class="num">3</span>
+            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span><span class="step-label">保存備用碼</span>
+        </div>
+      </div>
 
       <!-- ========== 設定新密碼 ========== -->
       <div class="pane active" id="paneForm">
@@ -190,6 +217,7 @@
   var rules      = document.getElementById('rules');
   var submitBtn  = document.getElementById('submitBtn');
   var submitLabel= document.getElementById('submitLabel');
+  var stepsEl    = document.getElementById('steps');
 
   /* ---- 兩種觸發情境：同一個版型，只換標題與說明 ----
      首次登入／密碼過期靠副標一句話就講得完。
@@ -218,6 +246,8 @@
     pageSub.innerHTML = s.sub;
     pageSub.style.display = s.sub ? '' : 'none';
     submitLabel.textContent = s.btn;
+    // stepper 只在首次登入顯示：密碼過期是既有帳號、2FA 早就設定過，不會再走一次
+    stepsEl.style.display = key === 'first' ? '' : 'none';
   }
 
   /* ---- 規則即時檢核 ---- */

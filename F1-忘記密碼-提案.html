@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 忘記密碼／找回帳號 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css">
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<script src="demo-mode.js?v=20260801"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -571,17 +572,31 @@
   });
 
   function otpValue() { return otpInputs.map(function (i) { return i.value; }).join(''); }
-  function syncVerifyBtn() { verifyBtn.disabled = otpValue().length !== 6; }
+  // 輸滿六格即自動送出，跟 2FA 兩頁（otp-shared.js）行為一致；
+  // 按鈕保留手動路徑（例如輸錯後想用同一組碼再送一次）
+  function syncVerifyBtn() {
+    var done = otpValue().length === 6;
+    verifyBtn.disabled = !done;
+    if (done) doVerify();
+  }
 
-  verifyBtn.addEventListener('click', function () {
+  // demo 固定測試碼，跟 2FA 兩頁同一組；輸錯走下方 showOtpError() 的遞減與鎖定
+  var CORRECT_OTP = '123456';
+
+  function doVerify() {
     otpRow.classList.add('is-loading');
     verifyBtn.disabled = true;
     verifyLabel.innerHTML = '<span class="spinner"></span>驗證中';
     setTimeout(function () {
       otpRow.classList.remove('is-loading');
       verifyLabel.textContent = '驗證';
-      goStep3();     // demo：一律成功，錯誤狀態用下方狀態列看
+      if (otpValue() === CORRECT_OTP) goStep3();
+      else showOtpError();
     }, 1000);
+  }
+
+  verifyBtn.addEventListener('click', function () {
+    if (!verifyBtn.disabled) doVerify();
   });
 
   function showOtpError() {
@@ -591,7 +606,11 @@
     otpRow.classList.add('is-error');
     if (otpAttemptsLeft > 0) {
       showMsg(msg2, msg2Text, 'error', '驗證碼錯誤，還可以再嘗試 <b>' + otpAttemptsLeft + '</b> 次');
-      verifyBtn.disabled = otpValue().length !== 6;
+      // 錯了就清空六格、游標回第一格，跟 otp-shared.js 的行為一致
+      // （不清空的話舊碼還留著＝已填滿，使用者改一格就立刻重送，白吃一次機會）
+      otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
+      verifyBtn.disabled = true;
+      otpInputs[0].focus();
     } else {
       // 兩階鎖定：第 1 次 30 分自動解鎖
       showMsg(msg2, msg2Text, 'error', '錯誤次數過多，請於 <b>30 分鐘</b>後再試');

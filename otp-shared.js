@@ -127,7 +127,12 @@ function initOtpVerifier(opts) {
     if (attemptsLeft > 0) {
       if (errorBox) errorBox.classList.add('show', 'error');
       if (errorTextEl) errorTextEl.innerHTML = '驗證碼錯誤，還可以再嘗試 <b>' + attemptsLeft + '</b> 次';
-      verifyBtn.disabled = code().length !== inputs.length;
+      // 錯了就清空六格、游標回第一格（業界通例）。
+      // 不清空的話舊碼還留著＝已經是「填滿」狀態，使用者一改其中一格就立刻重新送出，
+      // 還沒改完就白白吃掉一次機會——這是 2026-08-01 實測抓到的。
+      inputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
+      verifyBtn.disabled = true;
+      inputs[0].focus();
     } else {
       // 兩階鎖定：第 1 次 30 分自動解鎖，與帳密錯誤鎖定策略一致
       if (errorBox) errorBox.classList.add('show', 'error');

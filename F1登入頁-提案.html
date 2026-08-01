@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 登入頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css">
+<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<script src="demo-mode.js?v=20260801"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -370,7 +371,8 @@
     document.getElementById('captchaField').classList.remove('is-error');
   });
 
-  function setState(s) {
+  // 第二個參數是「還剩幾次」，只有實際操作時會傳；demo 狀態列不傳，用預設值當範例
+  function setState(s, left) {
     clearAll();
 
     if (s === 'error') {
@@ -378,7 +380,7 @@
       fields[0].classList.add('is-error');
       fields[1].classList.add('is-error');
       formAlert.classList.add('show', 'error');
-      alertText.innerHTML = '帳號或密碼錯誤，還可以再嘗試 <b>3</b> 次';
+      alertText.innerHTML = '帳號或密碼錯誤，還可以再嘗試 <b>' + (left == null ? 3 : left) + '</b> 次';
     }
 
     if (s === 'lastchance') {
@@ -395,6 +397,7 @@
       captchaAlert.classList.add('show', 'error');
       captchaAlertText.textContent = '驗證碼錯誤，請重新輸入';
       refreshCaptcha();
+      captcha.value = '';   // 換新圖了，舊的輸入留著只會擋路
     }
 
     if (s === 'loading') {
@@ -420,10 +423,15 @@
 
   blockedBtn.addEventListener('click', function () {
     setState('default');
-    btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'default'); });
+    syncStateBar('default');
   });
 
   var btns = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
+
+  // 實際操作觸發的狀態，也讓 demo 狀態列跟著亮，兩邊不會各講各的
+  function syncStateBar(s) {
+    btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === s); });
+  }
   btns.forEach(function (b) {
     b.addEventListener('click', function () {
       btns.forEach(function (x) { x.classList.toggle('active', x === b); });
@@ -446,6 +454,20 @@
     this.textContent = '首次登入：' + (isFirstLogin ? '開' : '關');
   });
 
+  // 從流程總覽頁點「首次登入設定流程」進來時帶 ?first=1，
+  // 一載入就先切成「首次登入」狀態，不用自己找這顆切換鈕
+  if (new URLSearchParams(location.search).get('first') === '1') {
+    firstLoginToggle.click();
+  }
+
+  /* 帳密錯誤次數：真的會遞減，歸零就自動進鎖定，不用靠下方狀態列。
+     上限 5 次與 OTP 輸錯鎖定策略一致。
+     圖形驗證碼錯誤**不計入這個數字**——它防的是機器人不是驗身分，
+     若算進去，任何人都能拿別人的帳號亂輸驗證碼把對方鎖掉（等於開了一個 DoS 出口）。
+     驗證碼錯就換一張重來，帳號安全與否只看帳密。 */
+  var MAX_LOGIN_ATTEMPTS = 5;
+  var loginAttemptsLeft = MAX_LOGIN_ATTEMPTS;
+
   // 按登入會跑 1.2 秒載入。驗證碼、帳密都對才算成功——
   // 2FA 強制啟用：一般登入導向簡訊 OTP 驗證頁；首次登入導向強制改密碼（見上方 demo 開關）
   loginBtn.addEventListener('click', function () {
@@ -456,17 +478,24 @@
 
       if (!captchaOk) {
         setState('captcha-error');
-        btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'captcha-error'); });
+        syncStateBar('captcha-error');
         return;
       }
       if (!credsOk) {
-        setState('error');
-        btns.forEach(function (x) { x.classList.toggle('active', x.dataset.state === 'error'); });
+        loginAttemptsLeft = Math.max(0, loginAttemptsLeft - 1);
+        // 剩 1 次改用語氣更重的「最後一次機會」，歸零直接鎖定
+        if (loginAttemptsLeft === 0)      { setState('locked');     syncStateBar('locked'); }
+        else if (loginAttemptsLeft === 1) { setState('lastchance'); syncStateBar('lastchance'); }
+        else                              { setState('error', loginAttemptsLeft); syncStateBar('error'); }
+        // 帳密錯誤時舊的圖形驗證碼一併作廢，跟真實系統一致
+        if (loginAttemptsLeft > 0) { refreshCaptcha(); captcha.value = ''; }
         return;
       }
       // 帳密＋驗證碼都通過：依 demo 開關決定 happy path A 或 B
+      // 2026-07-31：首次登入改直接連到 2FA 綁定引導頁——「設定密碼」已併入
+      // 那個檔案當作 pane①，F1-強制變更密碼-提案.html 現在只服務「密碼過期」情境
       window.location.href = isFirstLogin
-        ? 'F1-強制變更密碼-提案.html'
+        ? 'F1-2FA綁定引導-提案.html'
         : 'F1-2FA驗證頁-提案.html';
     }, 1200);
   });
