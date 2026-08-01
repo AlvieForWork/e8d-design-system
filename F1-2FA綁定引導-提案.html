@@ -633,12 +633,18 @@
                  '\n\n每組備用碼只能使用一次，請妥善保存。\n\n' + codes.join('\n');
 
       if (kind === 'download') {
+        // Safari 對「沒插入 DOM 就點擊」的 blob 下載連結會忽略 download 屬性，
+        // 自己生一個 UUID 檔名（2026-08-01 實測抓到）。修法：先插入頁面再點，
+        // 且不立刻 revoke——太早收回 blob URL 在部分瀏覽器會讓下載中途失敗。
         var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = url;
         a.download = 'every8d-備用碼.txt';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(a.href);
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
         markSaved(this, '已下載');
       }
       if (kind === 'copy') {
