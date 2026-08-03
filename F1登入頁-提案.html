@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 登入頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260801">
+<link rel="stylesheet" href="auth-tokens.css?v=20260803">
 <script src="demo-mode.js?v=20260801"></script>
 <style>
 
@@ -50,6 +50,8 @@
 
   /* 錯誤／最後警告／鎖定三種狀態統一用 error 色階 */
   .form-alert.error { color: var(--text-error); }
+  /* Session 逾時：不是使用者做錯事，是中性通知，用 info 色階跟錯誤訊息區分 */
+  .form-alert.info { color: var(--text-info); }
 
   /* 送出中／已鎖定：欄位變淡不可動（訊息本身不變淡，要保持可讀） */
   .captcha-field.is-disabled { opacity: .55; pointer-events: none; }
@@ -296,6 +298,7 @@
   <button data-state="loading">登入中</button>
   <button data-state="locked">已鎖定</button>
   <button data-state="disabled">帳號權限已關閉</button>
+  <button data-state="session-timeout">Session 逾時</button>
   <span class="sep"></span>
   <span class="tag">登入後導向</span>
   <!-- demo 用：靜態原型沒有後端能真的判斷是否首次登入，
@@ -325,7 +328,7 @@
   /* ---- 狀態切換 ---- */
   function clearAll() {
     fields.forEach(function (f) { f.classList.remove('is-error', 'is-disabled'); });
-    formAlert.classList.remove('show', 'error');
+    formAlert.classList.remove('show', 'error', 'info');
     captchaAlert.classList.remove('show', 'error');
     loginBtn.disabled = false;
     loginLabel.textContent = '登入';
@@ -419,6 +422,12 @@
       loginPane.classList.remove('active');
       blockedPane.classList.add('active');
     }
+
+    // Session 閒置逾時被系統登出：中性通知，不是使用者輸入錯誤，不用 error 色階
+    if (s === 'session-timeout') {
+      formAlert.classList.add('show', 'info');
+      alertText.textContent = '工作階段已逾時，請重新登入';
+    }
   }
 
   blockedBtn.addEventListener('click', function () {
@@ -460,6 +469,13 @@
   // 一載入就先切成「首次登入」狀態，不用自己找這顆切換鈕
   if (new URLSearchParams(location.search).get('first') === '1') {
     firstLoginToggle.click();
+  }
+
+  // 從 Session 逾時 Modal demo 頁按「登出」連過來時帶 ?timeout=1，
+  // 一載入就顯示逾時提示，不用手動點狀態列
+  if (new URLSearchParams(location.search).get('timeout') === '1') {
+    setState('session-timeout');
+    syncStateBar('session-timeout');
   }
 
   /* 帳密錯誤次數：真的會遞減，歸零就自動進鎖定，不用靠下方狀態列。

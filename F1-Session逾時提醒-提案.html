@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F1 Session 逾時提醒 — 提案</title>
+<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<style>
+  /* 這個 Modal 是全站共用元件，不屬於單一頁面，背景不是登入前版型。
+     背景改用 iframe 直接載入已上線的「E8D 後台導覽結構原型」
+     （https://alvieforwork.github.io/e8d-nav-prototype/），
+     不用自己拼假的側欄/內容佔位——PM 看到的背景是真實畫面，
+     且原型之後更新這裡不用跟著手動同步 */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; font-family: var(--font); background: var(--bg-page); color: var(--text-primary); }
+
+  .bg-frame {
+    position: fixed; inset: 0; width: 100vw; height: 100vh;
+    border: none;
+  }
+
+  /* ---------- Modal（沿用設計系統 Modal 元件規格：Confirm 類型、無 ✕、sm 400） ---------- */
+  .modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(26, 21, 18, .45);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-mask.show { display: flex; }
+
+  .modal { width: 400px; max-width: calc(100vw - 48px); background: var(--neutral-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+  .modal-head { padding: var(--space-xl) var(--space-xl) var(--space-sm); }
+  .modal-title { font-size: 16px; line-height: 24px; font-weight: var(--fw-medium); color: var(--text-primary); }
+  .modal-body { padding: 0 var(--space-xl) var(--space-lg); font-size: var(--fs-sm); line-height: 22px; color: var(--text-secondary); }
+  .modal-foot { display: flex; justify-content: flex-end; gap: var(--space-sm); padding: var(--space-sm) var(--space-xl) var(--space-xl); }
+
+  /* Modal 按鈕用元件庫的 Button Medium 規格（36px），跟登入前版型的 48px .btn-primary 不是同一套 */
+  .m-btn {
+    height: 36px; padding: 0 var(--space-lg);
+    border-radius: var(--radius-md); font-family: var(--font);
+    font-size: var(--fs-sm); font-weight: var(--fw-medium);
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .m-btn-primary { background: var(--primary-700); color: var(--neutral-white); }
+  .m-btn-primary:hover { background: var(--primary-800); }
+  .m-btn-secondary { background: var(--neutral-white); border-color: var(--border-default); color: var(--text-primary); }
+  .m-btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-hover); }
+
+  /* demo 控制（跟 auth 頁的 state-bar 是不同系統，這裡只是重新叫出 Modal 用） */
+  .demo-bar {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: var(--space-md);
+    background: var(--neutral-black); color: var(--neutral-white);
+    padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-full);
+    box-shadow: var(--shadow-lg); font-size: var(--fs-micro); z-index: 200;
+  }
+  .demo-bar button {
+    font-family: var(--font); font-size: var(--fs-micro); font-weight: var(--fw-medium);
+    background: rgba(255,255,255,.14); color: var(--neutral-white);
+    border: none; border-radius: var(--radius-full); padding: 6px 12px; cursor: pointer;
+  }
+  .demo-bar button:hover { background: rgba(255,255,255,.22); }
+</style>
+</head>
+<body>
+
+<iframe class="bg-frame" src="https://alvieforwork.github.io/e8d-nav-prototype/" title="E8D 後台導覽結構原型（背景示意，非本次設計重點）"></iframe>
+
+<!-- Session 逾時警告 Modal：閒置一段時間後疊在使用者當下畫面上方 -->
+<div class="modal-mask show" id="modalMask">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">即將登出</div></div>
+    <div class="modal-body">您已閒置一段時間，為了保護帳號安全，系統即將自動登出。</div>
+    <div class="modal-foot">
+      <button class="m-btn m-btn-secondary" id="logoutBtn">登出</button>
+      <button class="m-btn m-btn-primary" id="stayBtn">繼續使用</button>
+    </div>
+  </div>
+</div>
+
+<div class="demo-bar">
+  <span>demo</span>
+  <button id="reopenBtn">重新顯示 Modal</button>
+</div>
+
+<script>
+  var mask = document.getElementById('modalMask');
+  document.getElementById('reopenBtn').addEventListener('click', function () {
+    mask.classList.add('show');
+  });
+  // 繼續使用＝延長 session，關閉提醒留在原本畫面
+  document.getElementById('stayBtn').addEventListener('click', function () {
+    mask.classList.remove('show');
+  });
+  // 登出＝真的登出，導回登入頁；帶 ?timeout=1 讓登入頁顯示「工作階段已逾時」提示，
+  // 不是空白乾淨的登入頁（也不是走一般登出應該有的其他提示，這裡專指逾時觸發的登出）
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    window.location.href = 'F1登入頁-提案.html?timeout=1';
+  });
+</script>
+
+</body>
+</html>

@@ -63,6 +63,7 @@
   --text-success:   var(--success-700);
   --text-warning:   var(--warning-700);
   --text-error:     var(--error-700);     /* 錯誤／鎖定 */
+  --text-info:      var(--info-700);      /* 一般提示（非錯誤/警告），例：Session 逾時登出 */
 
   /* ---------- Semantic：邊框與圖示 ---------- */
   --border-default: var(--neutral-200);
