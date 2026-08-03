@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8D 動態背景 — 試玩</title>
+<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<style>
+  /* ============================================================
+     動態背景試玩頁（2026-08-03）
+     兩種效果各一版，參數全部拉成滑桿，用來挑方向、不是最終版：
+       A. 流動線條 —— 參考 mintlify.com（實測為 2D canvas，非 WebGL）
+       B. 動態漸層 —— 參考 feralui.dev/gradients 的 Flow 型
+     顏色一律走 E8D token，不用參考對象的綠色／藍紫
+     ============================================================ */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: var(--font); background: var(--bg-page); color: var(--text-primary); }
+
+  .lab { display: flex; height: 100vh; }
+
+  /* ---------- 左：預覽 ---------- */
+  .preview-wrap { flex: 1; min-width: 0; padding: var(--space-xl); display: flex; flex-direction: column; gap: var(--space-md); }
+  .preview {
+    flex: 1; position: relative; overflow: hidden;
+    border-radius: var(--radius-xl);
+    background: var(--neutral-black);
+  }
+  /* 模擬登入頁左側比例（44% 寬）時用，讓效果在真實版型裡看 */
+  .preview.as-panel { max-width: 44%; }
+
+  .preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* 疊在效果上的品牌文字，用來確認可讀性 —— 效果再美，字看不清就不能用 */
+  .preview-copy {
+    position: absolute; left: var(--space-3xl); bottom: var(--space-3xl);
+    z-index: 2; pointer-events: none; max-width: 420px;
+  }
+  .preview-copy h2 {
+    margin: 0 0 var(--space-md);
+    font-size: var(--fs-hero); line-height: 1.25; font-weight: var(--fw-bold);
+    color: var(--neutral-white);
+  }
+  .preview-copy p { margin: 0; font-size: var(--fs-body); line-height: 1.6; color: rgba(255,255,255,.62); }
+
+  .preview-note { font-size: var(--fs-caption); color: var(--text-secondary); }
+
+  /* ---------- B. 動態漸層：光暈層 ---------- */
+  .glow-layer { position: absolute; inset: 0; }
+  .spot {
+    position: absolute; border-radius: 50%;
+    filter: blur(var(--blur, 90px));
+    opacity: var(--spot-alpha, .55);
+    animation: drift var(--dur, 30s) ease-in-out infinite alternate;
+    animation-delay: var(--delay, 0s);
+    will-change: transform;
+  }
+  @keyframes drift {
+    to { transform: translate(calc(var(--sx) * var(--amp, 1)), calc(var(--sy) * var(--amp, 1))); }
+  }
+  /* 顆粒質感：壓掉純漸層的塑膠感，跟登入頁同一個做法。
+     ⚠️ SVG 一定要顯式給 100% 寬高 —— 只寫 inset:0 它會用預設的 300×150
+     內在尺寸，左上角就會露出一塊灰方塊（踩過一次） */
+  .grain {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: var(--grain-alpha, .18); pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spot { animation: none; }
+  }
+
+  /* ---------- 右：控制盤 ---------- */
+  .panel {
+    width: 320px; flex-shrink: 0; overflow-y: auto;
+    background: var(--bg-surface); border-left: 1px solid var(--border-default);
+    padding: var(--space-xl);
+  }
+  .panel h1 { font-size: var(--fs-title); margin: 0 0 var(--space-xs); }
+  .panel .sub { font-size: var(--fs-caption); color: var(--text-secondary); margin: 0 0 var(--space-xl); line-height: 1.6; }
+
+  .tabs { display: flex; gap: var(--space-xs); background: var(--neutral-100); padding: var(--space-xs); border-radius: var(--radius-md); margin-bottom: var(--space-xl); }
+  .tabs button {
+    flex: 1; font-family: var(--font); font-size: var(--fs-caption); font-weight: var(--fw-medium);
+    padding: var(--space-sm); border: none; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+  }
+  .tabs button.active { background: var(--neutral-white); color: var(--text-brand); box-shadow: var(--shadow-sm); }
+
+  .group { display: none; }
+  .group.show { display: block; }
+
+  .ctrl { margin-bottom: var(--space-lg); }
+  .ctrl label { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-caption); margin-bottom: 6px; }
+  .ctrl label .val { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-secondary); }
+  .ctrl input[type=range] { width: 100%; accent-color: var(--primary-700); }
+
+  .swatches { display: flex; gap: var(--space-sm); margin-bottom: var(--space-lg); }
+  .swatches button {
+    flex: 1; height: 32px; border-radius: var(--radius-md); cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .swatches button.active { border-color: var(--text-primary); }
+
+  .toggle-row { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--fs-caption); margin-bottom: var(--space-lg); }
+  .toggle-row input { accent-color: var(--primary-700); width: 16px; height: 16px; }
+
+  .divider { height: 1px; background: var(--border-default); margin: var(--space-xl) 0; }
+
+  .readout {
+    font-family: var(--font-mono); font-size: var(--fs-micro); line-height: 1.7;
+    color: var(--text-secondary); background: var(--bg-page);
+    border: 1px solid var(--border-default); border-radius: var(--radius-md);
+    padding: var(--space-md); white-space: pre-wrap; word-break: break-all;
+  }
+  .hint { font-size: var(--fs-micro); color: var(--text-secondary); line-height: 1.6; margin-top: var(--space-sm); }
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="preview-wrap">
+    <div class="preview" id="preview">
+      <!-- A. 流動線條 -->
+      <canvas id="lines"></canvas>
+
+      <!-- B. 動態漸層 -->
+      <div class="glow-layer" id="glowLayer"></div>
+      <svg class="grain" id="grain" xmlns="http://www.w3.org/2000/svg">
+        <filter id="grainFilter"><feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="3"/></filter>
+        <rect width="100%" height="100%" filter="url(#grainFilter)"/>
+      </svg>
+
+      <div class="preview-copy">
+        <h2>每一次登入，<br>都經過多重防護驗證</h2>
+        <p>帳號安全是我們最基本的承諾，從登入到每一則簡訊發送，全程受到嚴密保護。</p>
+      </div>
+    </div>
+    <div class="preview-note">疊在上面的標語是拿來檢查可讀性用的 —— 效果再好看，字看不清就不能上。</div>
+  </div>
+
+  <div class="panel">
+    <h1>動態背景試玩</h1>
+    <p class="sub">兩種方向各一版，參數可即時調。挑定方向後我再收成正式版接進登入頁左側。</p>
+
+    <div class="tabs">
+      <button data-tab="lines" class="active">流動線條</button>
+      <button data-tab="glow">動態漸層</button>
+    </div>
+
+    <!-- ===== A. 流動線條 ===== -->
+    <div class="group show" data-group="lines">
+      <div class="ctrl">
+        <label>線條數量 <span class="val" id="v-count">42</span></label>
+        <input type="range" id="c-count" min="8" max="90" value="42">
+      </div>
+      <div class="ctrl">
+        <label>流動速度 <span class="val" id="v-speed">0.030</span></label>
+        <input type="range" id="c-speed" min="0" max="120" value="30">
+      </div>
+      <div class="ctrl">
+        <label>扇形張角 <span class="val" id="v-spread">62°</span></label>
+        <input type="range" id="c-spread" min="10" max="120" value="62">
+      </div>
+      <div class="ctrl">
+        <label>彎曲程度 <span class="val" id="v-curve">0.42</span></label>
+        <input type="range" id="c-curve" min="0" max="100" value="42">
+      </div>
+      <div class="ctrl">
+        <label>線條粗細 <span class="val" id="v-width">1.1px</span></label>
+        <input type="range" id="c-width" min="4" max="30" value="11">
+      </div>
+      <div class="ctrl">
+        <label>整體亮度 <span class="val" id="v-alpha">0.70</span></label>
+        <input type="range" id="c-alpha" min="10" max="100" value="70">
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="c-second" checked>
+        <label for="c-second">加第二束（對角呼應，像 Mintlify 那樣兩束交錯）</label>
+      </div>
+      <div class="hint">Mintlify 實測是 2D canvas（不是 WebGL），線條從一點扇形散開持續流動、沿線長度上色漸層。這裡的原理相同，顏色換成 E8D 橘。</div>
+    </div>
+
+    <!-- ===== B. 動態漸層 ===== -->
+    <div class="group" data-group="glow">
+      <div class="ctrl">
+        <label>光暈數量 <span class="val" id="v-spots">4</span></label>
+        <input type="range" id="c-spots" min="2" max="7" value="4">
+      </div>
+      <div class="ctrl">
+        <label>模糊程度 <span class="val" id="v-blur">100px</span></label>
+        <input type="range" id="c-blur" min="30" max="200" value="100">
+      </div>
+      <div class="ctrl">
+        <label>飄動幅度 <span class="val" id="v-amp">1.00</span></label>
+        <input type="range" id="c-amp" min="0" max="250" value="100">
+      </div>
+      <div class="ctrl">
+        <label>飄動週期 <span class="val" id="v-dur">30s</span></label>
+        <input type="range" id="c-dur" min="8" max="70" value="30">
+      </div>
+      <div class="ctrl">
+        <label>光暈濃度 <span class="val" id="v-galpha">0.55</span></label>
+        <input type="range" id="c-galpha" min="10" max="100" value="55">
+      </div>
+      <div class="ctrl">
+        <label>顆粒質感 <span class="val" id="v-grain">0.18</span></label>
+        <input type="range" id="c-grain" min="0" max="60" value="18">
+      </div>
+      <div class="hint">feralui 的 Flow 型也是 canvas，但同樣的視覺用 CSS 多層模糊光暈就做得出來，效能更好、工程師也好接 —— 這其實就是現在登入頁那三團光暈的加強版。</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <input type="checkbox" id="c-panel">
+      <label for="c-panel">用登入頁左側比例預覽（44% 寬）</label>
+    </div>
+
+    <div class="readout" id="readout"></div>
+    <div class="hint">上面這串是目前參數，挑定後直接報給我，我照這組值收成正式版。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* E8D 品牌色（取自 auth-tokens.css，這裡要在 canvas 用所以取字面值） */
+  var BRAND = {
+    deep:  '#FF6416',   // primary-700 主色
+    warm:  '#FF8340',   // primary-500
+    light: '#FFA575'    // primary-300
+  };
+
+  var preview  = document.getElementById('preview');
+  var canvas   = document.getElementById('lines');
+  var ctx      = canvas.getContext('2d');
+  var glowLayer= document.getElementById('glowLayer');
+  var grain    = document.getElementById('grain');
+  var readout  = document.getElementById('readout');
+
+  var mode = 'lines';
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 參數 ---------- */
+  var P = {
+    count: 42, speed: 0.030, spread: 62, curve: 0.42, width: 1.1, alpha: 0.70, second: true,
+    spots: 4, blur: 100, amp: 1.0, dur: 30, galpha: 0.55, grain: 0.18
+  };
+
+  /* ---------- canvas 尺寸（含 retina） ---------- */
+  var W = 0, H = 0;
+  function resize() {
+    var r = preview.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    W = r.width; H = r.height;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  /* ---------- A. 流動線條 ----------
+     原理：一束線從原點 O 扇形散開，每條線有自己的相位 p（0→1 循環）。
+     p 決定它在扇形裡的角度，隨時間遞增就會看到整束線持續往同方向流動。
+     首尾用 sin 淡入淡出，線才不會在邊界「啪」地出現或消失。 */
+  function drawBundle(ox, oy, baseAngle, dir, t) {
+    var R = Math.hypot(W, H) * 1.25;          // 拉長超出畫布，線看起來是穿出去的
+    var spreadRad = P.spread * Math.PI / 180;
+
+    for (var i = 0; i < P.count; i++) {
+      var p = ((i / P.count) + t * P.speed) % 1;
+
+      var angle = baseAngle + dir * (p - 0.5) * spreadRad;
+      var ex = ox + Math.cos(angle) * R;
+      var ey = oy + Math.sin(angle) * R;
+
+      // 控制點偏移產生彎曲：偏移量跟著 curve 走，0 就是直線
+      var bend = dir * P.curve * spreadRad * 0.9;
+      var cx = ox + Math.cos(angle + bend) * R * 0.55;
+      var cy = oy + Math.sin(angle + bend) * R * 0.55;
+
+      // 邊界淡出，避免線條突兀地生滅
+      var fade = Math.sin(p * Math.PI);
+      var a = P.alpha * fade * fade;
+      if (a < 0.004) continue;
+
+      var g = ctx.createLinearGradient(ox, oy, ex, ey);
+      g.addColorStop(0,    hexA(BRAND.deep,  0));
+      g.addColorStop(0.18, hexA(BRAND.deep,  a));
+      g.addColorStop(0.55, hexA(BRAND.warm,  a * 0.95));
+      g.addColorStop(1,    hexA(BRAND.light, 0));
+
+      ctx.strokeStyle = g;
+      ctx.lineWidth = P.width;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.quadraticCurveTo(cx, cy, ex, ey);
+      ctx.stroke();
+    }
+  }
+
+  function hexA(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a.toFixed(3) + ')';
+  }
+
+  var start = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (mode !== 'lines') return;
+
+    var t = reduceMotion ? 0 : (now - start) / 1000;
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';   // 線交疊處自然變亮，不會糊成一坨
+
+    // 主束：左下往右上
+    drawBundle(W * 0.10, H * 1.02, -Math.PI * 0.32, 1, t);
+    // 第二束：右上往左下，交錯呼應
+    if (P.second) drawBundle(W * 0.96, H * -0.06, Math.PI * 0.66, -1, t * 0.82);
+
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- B. 動態漸層 ----------
+     每團光就是一個模糊的圓，靠 transform 慢慢位移。
+     位置/方向寫死成固定分布，這樣調參數時畫面不會整個跳掉。 */
+  var SPOT_DEFS = [
+    { x: 12, y: 18, size: 62, color: BRAND.deep,  sx:  90, sy:  70, dur: 1.00, delay: 0 },
+    { x: 68, y: 12, size: 54, color: BRAND.warm,  sx: -80, sy:  95, dur: 1.22, delay: -6 },
+    { x: 30, y: 72, size: 70, color: BRAND.deep,  sx: 110, sy: -60, dur: 1.46, delay: -13 },
+    { x: 82, y: 62, size: 48, color: BRAND.light, sx: -70, sy: -85, dur: 0.86, delay: -3 },
+    { x: 50, y: 40, size: 44, color: BRAND.warm,  sx:  60, sy:  60, dur: 1.62, delay: -9 },
+    { x:  8, y: 52, size: 40, color: BRAND.light, sx:  95, sy: -45, dur: 1.10, delay: -17 },
+    { x: 92, y: 30, size: 38, color: BRAND.deep,  sx: -60, sy:  80, dur: 1.34, delay: -21 }
+  ];
+
+  function buildGlow() {
+    glowLayer.innerHTML = '';
+    for (var i = 0; i < P.spots; i++) {
+      var d = SPOT_DEFS[i];
+      var el = document.createElement('div');
+      el.className = 'spot';
+      el.style.left   = d.x + '%';
+      el.style.top    = d.y + '%';
+      el.style.width  = d.size + '%';
+      el.style.height = d.size + '%';
+      el.style.background = 'radial-gradient(circle, ' + d.color + ' 0%, ' + hexA(d.color, 0) + ' 70%)';
+      el.style.setProperty('--sx', d.sx + 'px');
+      el.style.setProperty('--sy', d.sy + 'px');
+      el.style.setProperty('--dur', (P.dur * d.dur).toFixed(1) + 's');
+      el.style.setProperty('--delay', d.delay + 's');
+      glowLayer.appendChild(el);
+    }
+    applyGlowVars();
+  }
+  function applyGlowVars() {
+    glowLayer.style.setProperty('--blur', P.blur + 'px');
+    glowLayer.style.setProperty('--amp', P.amp);
+    glowLayer.style.setProperty('--spot-alpha', P.galpha);
+    grain.style.setProperty('--grain-alpha', P.grain);
+  }
+
+  /* ---------- 模式切換 ---------- */
+  function setMode(m) {
+    mode = m;
+    canvas.style.display    = (m === 'lines') ? 'block' : 'none';
+    glowLayer.style.display = (m === 'glow')  ? 'block' : 'none';
+    grain.style.display     = (m === 'glow')  ? 'block' : 'none';
+    document.querySelectorAll('.tabs button').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === m);
+    });
+    document.querySelectorAll('.group').forEach(function (g) {
+      g.classList.toggle('show', g.dataset.group === m);
+    });
+    render();
+  }
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () { setMode(this.dataset.tab); });
+  });
+
+  /* ---------- 滑桿綁定 ---------- */
+  function bind(id, key, transform, format, after) {
+    var el = document.getElementById('c-' + id);
+    var out = document.getElementById('v-' + id);
+    el.addEventListener('input', function () {
+      P[key] = transform(Number(this.value));
+      out.textContent = format(P[key]);
+      if (after) after();
+      render();
+    });
+  }
+  var id = function (v) { return v; };
+
+  bind('count',  'count',  id,                function (v) { return v; });
+  bind('speed',  'speed',  function (v) { return v / 1000; }, function (v) { return v.toFixed(3); });
+  bind('spread', 'spread', id,                function (v) { return v + '°'; });
+  bind('curve',  'curve',  function (v) { return v / 100; },  function (v) { return v.toFixed(2); });
+  bind('width',  'width',  function (v) { return v / 10; },   function (v) { return v.toFixed(1) + 'px'; });
+  bind('alpha',  'alpha',  function (v) { return v / 100; },  function (v) { return v.toFixed(2); });
+
+  bind('spots',  'spots',  id,                function (v) { return v; },            buildGlow);
+  bind('blur',   'blur',   id,                function (v) { return v + 'px'; },     applyGlowVars);
+  bind('amp',    'amp',    function (v) { return v / 100; },  function (v) { return v.toFixed(2); }, applyGlowVars);
+  bind('dur',    'dur',    id,                function (v) { return v + 's'; },      buildGlow);
+  bind('galpha', 'galpha', function (v) { return v / 100; },  function (v) { return v.toFixed(2); }, applyGlowVars);
+  bind('grain',  'grain',  function (v) { return v / 100; },  function (v) { return v.toFixed(2); }, applyGlowVars);
+
+  document.getElementById('c-second').addEventListener('change', function () {
+    P.second = this.checked; render();
+  });
+  document.getElementById('c-panel').addEventListener('change', function () {
+    preview.classList.toggle('as-panel', this.checked);
+    resize(); render();
+  });
+
+  /* ---------- 參數輸出 ---------- */
+  function render() {
+    readout.textContent = (mode === 'lines')
+      ? '流動線條\n線數 ' + P.count + '　速度 ' + P.speed.toFixed(3) + '　張角 ' + P.spread + '°\n彎曲 ' + P.curve.toFixed(2) + '　粗細 ' + P.width.toFixed(1) + 'px　亮度 ' + P.alpha.toFixed(2) + '\n第二束 ' + (P.second ? '開' : '關')
+      : '動態漸層\n光暈 ' + P.spots + ' 團　模糊 ' + P.blur + 'px\n幅度 ' + P.amp.toFixed(2) + '　週期 ' + P.dur + 's\n濃度 ' + P.galpha.toFixed(2) + '　顆粒 ' + P.grain.toFixed(2);
+  }
+
+  /* ---------- 啟動 ---------- */
+  resize();
+  buildGlow();
+  setMode('lines');
+})();
+</script>
+
+</body>
+</html>

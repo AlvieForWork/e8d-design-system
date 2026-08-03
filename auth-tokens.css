@@ -172,7 +172,14 @@ body {
   overflow: hidden;
 }
 
-/* 飄動光暈：模糊的橘色圓形，靠 transform 緩慢位移製造流動感 */
+/* 水波效果啟動後，漸層改由 ripple-panel.js 畫成底圖交給 WebGL 折射，
+   這裡要把 CSS 漸層讓出來（library 會在面板內插一層 canvas）。
+   ⚠️ 這個 class 只由 ripple-panel.js 加，不要手動寫在 HTML 上 ——
+   沒有 WebGL 的環境不會加，面板就維持上面那面 CSS 漸層，畫面不缺角 */
+.visual-panel.is-ripples { background: none; }
+
+/* 飄動光暈：模糊的橘色圓形，靠 transform 緩慢位移製造流動感。
+   水波模式下這三顆維持「浮在水面上」—— 自己飄、不受折射（2026-08-03 定案）*/
 .glow {
   position: absolute; z-index: 0;
   border-radius: 50%;
