@@ -440,8 +440,10 @@
   });
 
   // demo 帳密：跟欄位預設值一致，不改內容直接按登入就會成功
-  var DEMO_ACCOUNT  = 'emma';
   var DEMO_PASSWORD = 'Emma88888';
+  // 帳密都對，但帳號狀態不同：emma 正常、emma_disabled 模擬「密碼正確、帳號已停用」，
+  // 用來讓 PM 不必靠下方 demo 狀態列也能真的打帳密觸發「帳號權限已關閉」畫面
+  var ACCOUNT_STATUS = { emma: 'ok', emma_disabled: 'disabled' };
 
   // demo 用：靜態原型沒有後端能真的判斷「這個帳號是不是第一次登入」，
   // 用這顆獨立開關模擬分岔，決定登入成功後走 happy path A（一般）還是 B（首次）
@@ -474,7 +476,8 @@
     setState('loading');
     setTimeout(function () {
       var captchaOk = captcha.value === currentCaptchaAnswer;
-      var credsOk = account.value === DEMO_ACCOUNT && password.value === DEMO_PASSWORD;
+      var accountStatus = ACCOUNT_STATUS[account.value];
+      var credsOk = !!accountStatus && password.value === DEMO_PASSWORD;
 
       if (!captchaOk) {
         setState('captcha-error');
@@ -489,6 +492,13 @@
         else                              { setState('error', loginAttemptsLeft); syncStateBar('error'); }
         // 帳密錯誤時舊的圖形驗證碼一併作廢，跟真實系統一致
         if (loginAttemptsLeft > 0) { refreshCaptcha(); captcha.value = ''; }
+        return;
+      }
+      // 帳密正確後才判斷帳號狀態：已停用不用再過 OTP，直接講（跟忘記密碼流程
+      // 「先驗證身份才揭露」不同——這裡憑的是帳密而非單一手機號，判斷點提前）
+      if (accountStatus === 'disabled') {
+        setState('disabled');
+        syncStateBar('disabled');
         return;
       }
       // 帳密＋驗證碼都通過：依 demo 開關決定 happy path A 或 B

@@ -741,9 +741,9 @@
   });
 
   /* ---------- Step 4 ---------- */
-  // resultBtn 依畫面而定：只有「密碼已更新」(happy path C 的終點) 要真的連到登入頁；
-  // 「驗證已逾時」「帳號阻斷」是 demo 展示的例外狀態，維持原本回到步驟①的行為，不串接
-  var resultBtnMode = 'success';   // success | demo-reset
+  // resultBtn 依畫面而定：「密碼已更新」(happy path C 的終點) 與「帳號阻斷」
+  // 都是流程終點，要真的連到登入頁；只有「驗證已逾時」可重試，回到步驟①
+  var resultBtnMode = 'success';   // success | demo-reset | blocked
   function showResult(expired) {
     // 逾時的是「驗證碼」本身（10 分鐘有效期，見設計清單待確認事項），
     // 代表使用者卡在步驟②——驗證碼還沒送出成功就過期，不是走完②才逾時。
@@ -804,16 +804,17 @@
     resultDesc.style.display = '';
     resultDesc.textContent = c.desc;
     resultBtnLabel.textContent = '返回登入';
-    resultBtnMode = 'demo-reset';
+    resultBtnMode = 'blocked';
   }
 
   document.getElementById('resultBtn').addEventListener('click', function () {
-    if (resultBtnMode === 'success') {
-      // happy path C 終點：密碼已更新，真的連回登入頁
+    if (resultBtnMode === 'success' || resultBtnMode === 'blocked') {
+      // 密碼已更新／帳號阻斷都是流程終點，「返回登入」要真的連回登入頁，
+      // 且是整頁重新載入，登入頁一律乾淨狀態，不會帶著手機號或帳號狀態回去（防列舉）
       window.location.href = 'F1登入頁-提案.html';
       return;
     }
-    // 逾時／阻斷是 demo 展示的例外狀態，維持原本回到步驟①的行為，不串接
+    // 逾時是可重試的例外狀態，維持原本回到步驟①的行為
     setState('s1');
     syncBar('s1');
   });

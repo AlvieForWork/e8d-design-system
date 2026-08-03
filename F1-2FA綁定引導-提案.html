@@ -392,6 +392,9 @@
   <button data-jump="3">備用碼</button>
   <button data-jump="4">完成</button>
   <span class="sep"></span>
+  <span class="tag">① 狀態</span>
+  <button data-pw-state="mismatch">密碼不一致</button>
+  <span class="sep"></span>
   <span class="tag">② 狀態</span>
   <button data-otp-state="error">驗證失敗</button>
   <button data-otp-state="locked">錯誤達上限</button>
@@ -488,11 +491,15 @@
     });
   });
 
+  function showPwMismatch() {
+    pwMsg.classList.add('show', 'error');
+    pwMsgText.textContent = '兩次輸入的密碼不一致';
+    pw2Field.classList.add('is-error');
+  }
+
   pwSubmitBtn.addEventListener('click', function () {
     if (pw.value !== pw2.value) {
-      pwMsg.classList.add('show', 'error');
-      pwMsgText.textContent = '兩次輸入的密碼不一致';
-      pw2Field.classList.add('is-error');
+      showPwMismatch();
       return;
     }
     pwField.classList.add('is-disabled'); pw2Field.classList.add('is-disabled');
@@ -552,6 +559,19 @@
 
   document.getElementById('contactSupportLink').addEventListener('click', function (e) {
     e.preventDefault();
+  });
+
+  /* demo：步驟①密碼不一致狀態預覽，不用真的打兩組不同密碼才能看到 */
+  document.querySelectorAll('[data-pw-state]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      jumpBtn.forEach(function (b) { b.classList.remove('active'); });
+      goTo(1);
+      resetPwPane();
+      pw.value = 'Abcd1234';
+      pw2.value = 'Abcd9999';
+      checkPwRules();
+      showPwMismatch();
+    });
   });
 
   /* demo：步驟②的錯誤/逾時狀態預覽，跟其他頁的狀態列同一套邏輯 */
