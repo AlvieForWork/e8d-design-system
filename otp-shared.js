@@ -1,12 +1,12 @@
 /* ============================================================
-   OTP 驗證共用邏輯（2026-07-31）
+   OTP 驗證共用邏輯（2026-07-31，2026-08-04 補上有效時間倒數）
    ------------------------------------------------------------
    六格輸入行為、輸入錯誤鎖定、重發三態、逾時——這四件事三頁
    （找回帳密頁、2FA 綁定引導頁、2FA 簡訊驗證頁）原本各自寫一份，
    正是「這頁改了那頁沒改」的飄移根源。抽成這支共用檔，改一次三頁同步。
 
-   目前只有「2FA 綁定引導頁」接這支檔案；找回帳密頁、2FA 簡訊驗證頁
-   維持原本各自的實作，之後個別評估要不要一起換成呼叫這裡（見專案筆記）。
+   目前「2FA 綁定引導頁」「2FA 簡訊驗證頁」都接這支檔案；找回帳密頁
+   維持原本各自的實作（沒有共用），之後個別評估要不要一起換成呼叫這裡。
 
    用法：
    <script src="otp-shared.js"></script>
@@ -23,9 +23,10 @@
        checkCode: function (code) { return true; },   // 選填，預設一律成功
        onSuccess: function (code) { ... },
        onTimeout: function () { ... },                // 選填，不傳就不啟動逾時計時
-       timeoutMs: 10 * 60 * 1000                       // 選填，搭配 onTimeout 使用
+       timeoutMs: 3 * 60 * 1000,                       // 選填，搭配 onTimeout 使用
+       validityEl: document.getElementById('validitySec')  // 選填，逐秒顯示剩餘秒數（交易代碼那行）
      });
-     otp.reset();               // 進到這一步時呼叫，重置輸入/倒數/逾時計時
+     otp.reset();               // 進到這一步時呼叫，重置輸入/倒數/逾時計時/有效時間
      otp.startCountdown(56);    // 開始重發倒數
    ============================================================ */
 function initOtpVerifier(opts) {
@@ -36,6 +37,7 @@ function initOtpVerifier(opts) {
   var errorBox     = opts.errorBox;
   var errorTextEl  = opts.errorTextEl;
   var resendRow    = opts.resendRow;
+  var validityEl   = opts.validityEl;
   var maxAttempts  = opts.maxAttempts || 5;
   var maxResends   = opts.maxResends || 3;
   var checkCode    = opts.checkCode || function () { return true; };
@@ -44,6 +46,7 @@ function initOtpVerifier(opts) {
   var resendCount  = 0;
   var resendTimer  = null;
   var timeoutTimer = null;
+  var timeoutSecLeft = 0;   // 有效時間倒數用（交易代碼那行），跟 resendTimer 是各自獨立的計時器
   var verifyLabelDefault = verifyLabelEl ? verifyLabelEl.textContent : '驗證';
   var resendBtnId  = 'resendBtn_' + Math.random().toString(36).slice(2, 8);
 
@@ -142,6 +145,9 @@ function initOtpVerifier(opts) {
       verifyBtn.disabled = true;
       clearInterval(resendTimer);
       resendRow.innerHTML = '';
+      // 30 分鐘鎖定蓋過 3 分鐘的驗證碼有效時間——鎖定中不該讓有效時間倒數繼續跑，
+      // 否則歸零會跳去「驗證已逾時」頁，蓋掉這裡的鎖定訊息
+      clearInterval(timeoutTimer);
     }
   }
 
@@ -195,6 +201,12 @@ function initOtpVerifier(opts) {
     function render() { renderResendRow('counting', left); }
   }
 
+  /* 有效時間倒數（交易代碼那行）：跟上面 resendTimer 是不同的計時器變數，
+     互不干擾。歸零時直接呼叫 onTimeout，取代原本啞的一次性 setTimeout
+     ——原本那個只在到期那一刻觸發，畫面上不會逐秒顯示，2026-08-04 前
+     三頁都沒有可視倒數，只有這支檔案裡默默計時 */
+  function renderValidity() { if (validityEl) validityEl.textContent = timeoutSecLeft; }
+
   function reset() {
     attemptsLeft = maxAttempts;
     resendCount = 0;
@@ -206,7 +218,13 @@ function initOtpVerifier(opts) {
     clearInterval(resendTimer);
     clearInterval(timeoutTimer);
     if (opts.onTimeout && opts.timeoutMs) {
-      timeoutTimer = setTimeout(opts.onTimeout, opts.timeoutMs);
+      timeoutSecLeft = Math.round(opts.timeoutMs / 1000);
+      renderValidity();
+      timeoutTimer = setInterval(function () {
+        timeoutSecLeft--;
+        if (timeoutSecLeft <= 0) { clearInterval(timeoutTimer); opts.onTimeout(); }
+        else renderValidity();
+      }, 1000);
     }
     inputs[0].focus();
   }

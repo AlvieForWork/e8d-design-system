@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 首次登入：2FA 綁定引導 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260801"></script>
+<script src="otp-shared.js?v=20260804"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -259,7 +259,10 @@
            保存備用碼」三步，不需要額外一頁純講道理；原本兩條說明濃縮成一句話併到這裡） -->
       <div class="pane" data-pane="2">
         <h1>驗證您的手機號碼</h1>
-        <p class="subtitle">為保護您的帳號與點數安全，登入時需要手機驗證碼；我們會將驗證碼發送到您帳號綁定的號碼，請確認號碼正確。</p>
+        <!-- 2026-08-04 四度調整：這頁進來時簡訊已經自動發送、畫面已在倒數，
+             原本「請確認號碼正確」是發送前語氣，跟已經在跑的倒數矛盾，改成
+             「已發送」語氣；交易代碼／有效時間併進同一句，不再獨立一行 -->
+        <p class="subtitle">驗證碼已發送至您綁定的手機，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒。</p>
 
         <div class="phone-box">
           <span class="ico">
@@ -269,7 +272,7 @@
           </span>
           <span>
             <span class="num">0912 ***347</span><br>
-            <span class="cap">帳號綁定號碼</span>
+            <span class="cap">驗證碼已發送至此號碼</span>
           </span>
         </div>
 
@@ -311,7 +314,7 @@
             </svg>
           </div>
           <h1>驗證已逾時</h1>
-          <p>為了保護您的帳號，超過 <b>10 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
+          <p>為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
         </div>
         <button class="btn btn-primary" id="otpTimeoutBtn" style="margin-top:var(--space-lg)"><span>重新開始</span></button>
       </div>
@@ -536,9 +539,10 @@
     errorBox: document.getElementById('otpErrorMsg'),
     errorTextEl: document.getElementById('otpErrorText'),
     resendRow: document.getElementById('resendRow'),
+    validityEl: document.getElementById('validitySec'),
     maxAttempts: 5,   // 與帳密錯誤鎖定策略一致
     maxResends: 3,
-    timeoutMs: 10 * 60 * 1000,   // 10 分鐘，跟卡片文案「請於 10 分鐘內完成驗證」一致
+    timeoutMs: 3 * 60 * 1000,   // 3 分鐘，跟交易代碼那行的「有效時間 180 秒」一致
     // demo 固定測試碼，三個 OTP 入口統一同一組；輸錯會走既有的遞減與鎖定
     checkCode: function (code) { return code === '123456'; },
     onSuccess: function () { goTo(3); },

@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 2FA 簡訊驗證頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260801"></script>
+<script src="otp-shared.js?v=20260804"></script>
 <style>
 
   /* 表單／驗證已逾時互斥切換 */
@@ -117,8 +117,15 @@
       </a>
 
       <h1 id="cardTitle">簡訊驗證碼</h1>
+      <!-- 交易代碼／有效時間串進同一句、同一行，不再另起一行。
+           2026-08-04 三度調整：sms／backup 兩種文案用內層 span 切換顯示，
+           不能用 cardSub.innerHTML 整段換掉——那樣每次切回 sms 都會重新
+           生成 #validitySec／#txCode 這兩個節點，otp-shared.js 在啟動時
+           只抓過一次舊節點的參照，之後倒數會更新到「已經不在畫面上」的
+           舊節點，畫面上的新節點永遠停在 180 不動（實測抓到過一次） -->
       <p class="subtitle" id="cardSubtitle">
-        驗證碼已發送至您綁定的手機 <b>0912****347</b>，請於 10 分鐘內完成驗證。
+        <span id="cardSubSms">驗證碼已發送至您綁定的手機 <b>0912****347</b>，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒</span>
+        <span id="cardSubBackup" style="display:none">輸入您保存的其中一組備用碼，每組只能用一次。</span>
       </p>
 
       <!-- 6 格驗證碼 -->
@@ -168,7 +175,7 @@
             </svg>
           </div>
           <h1>驗證已逾時</h1>
-          <p>為了保護您的帳號，超過 <b>10 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
+          <p>為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
         </div>
         <button class="btn btn-primary" id="otpTimeoutBtn" style="margin-top:var(--space-lg)"><span>重新開始</span></button>
       </div>
@@ -201,7 +208,8 @@
   var submitBtn  = document.getElementById('submitBtn');
   var submitLbl  = document.getElementById('submitLabel');
   var cardTitle  = document.getElementById('cardTitle');
-  var cardSub    = document.getElementById('cardSubtitle');
+  var cardSubSms    = document.getElementById('cardSubSms');
+  var cardSubBackup = document.getElementById('cardSubBackup');
   var backupLink   = document.getElementById('backupLink');
   var backupPrefix = document.getElementById('backupPrefix');
   var formPane   = document.getElementById('formPane');
@@ -222,11 +230,12 @@
     errorBox: errorMsg,
     errorTextEl: errorText,
     resendRow: resendRow,
+    validityEl: document.getElementById('validitySec'),
     maxAttempts: 5,          // 與帳密錯誤鎖定策略一致
     maxResends: 3,
     autoBindVerifyClick: false,
     checkCode: function (code) { return code === CORRECT_OTP; },
-    timeoutMs: 10 * 60 * 1000,   // 10 分鐘，跟卡片文案一致
+    timeoutMs: 3 * 60 * 1000,   // 3 分鐘，跟交易代碼那行的「有效時間 180 秒」一致
     onSuccess: showSuccess,
     onTimeout: showOtpTimeout
   });
@@ -326,7 +335,8 @@
     mode = next;
     if (mode === 'backup') {
       cardTitle.textContent = '輸入備用碼';
-      cardSub.innerHTML = '輸入您保存的其中一組備用碼，每組只能用一次。';
+      cardSubSms.style.display = 'none';
+      cardSubBackup.style.display = '';
       resendRow.innerHTML = '';
       resendRow.style.display = 'none';
       otp.stopResendTimer();
@@ -338,7 +348,8 @@
       backupInput.focus();
     } else {
       cardTitle.textContent = '簡訊驗證碼';
-      cardSub.innerHTML = '驗證碼已發送至您綁定的手機 <b>0912****347</b>，請於 10 分鐘內完成驗證。';
+      cardSubBackup.style.display = 'none';
+      cardSubSms.style.display = '';
       backupPrefix.textContent = '收不到簡訊？';
       backupLink.textContent = '改用備用碼';
       resendRow.style.display = '';
@@ -423,6 +434,10 @@
   document.getElementById('backLink').setAttribute('href', 'F1登入頁-提案.html');
 
   // 起始狀態
+  // 2026-08-04 修正：這裡原本沒呼叫 otp.reset()，導致 initOtpVerifier 裡
+  // 「有效時間」的計時器（依賴 reset() 才會啟動）在真實進入頁面時從沒開始跑，
+  // 只有走 demo 狀態列（每顆按鈕都會呼叫 otp.reset()）才會意外啟動
+  otp.reset();
   otp.startCountdown(56);
   otp.focus();
 })();

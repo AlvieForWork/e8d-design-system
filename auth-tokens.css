@@ -538,15 +538,24 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { .otp-row.is-error { animation: none; } }
 
-/* 重新發送 */
+/* OTP 交易代碼／有效時間：不獨立成一個視覺樣式，串進「已發送至 09xx****xxx」
+   同一句、同一行（.subtitle 淺灰），代碼與秒數的值再用 .subtitle b 那組加重
+   樣式（跟手機號碼同款），不另外做深淺灰。2026-08-04 三度調整：原本自成一格
+   太重像標題、後來分兩行仍有段落感，最後定案是同一句同一行 */
+
+/* 重新發送：整行（含秒數）統一用比說明文字更淺一階的灰，
+   跟上方「有效時間 NNN 秒」那行（.subtitle 淺灰＋深灰加重數字）明顯區隔開
+   ——原本這裡的秒數也用深灰加重，跟有效時間太像，容易混淆（2026-08-04 定案）。
+   借用 --text-disabled 的色值，語意上它是給「停用狀態」用的 token，
+   這裡只是借色階不是真的停用，正式收進設計系統時建議另補一個語意正確的
+   第三階文字色（例如 --text-tertiary） */
 .resend-row {
   display: flex; align-items: center; gap: 6px;
-  font-size: var(--fs-caption); color: var(--text-secondary);
+  font-size: var(--fs-caption); color: var(--text-disabled);
   margin-bottom: var(--space-xl); min-height: 20px;
 }
 .resend-row .countdown {
   font-variant-numeric: tabular-nums;
-  color: var(--text-primary); font-weight: var(--fw-semi);
 }
 .resend-btn {
   display: inline-flex; align-items: center; gap: 6px;

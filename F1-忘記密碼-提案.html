@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 忘記密碼／找回帳號 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
 <script src="demo-mode.js?v=20260801"></script>
 <style>
 
@@ -233,6 +233,12 @@
 
         <h1>輸入驗證碼</h1>
 
+        <!-- 這頁原本說明區是空的，2026-08-04 補上跟另兩頁一致的說明句；
+             交易代碼／有效時間串進同一句、同一行，不另起一行 -->
+        <p class="subtitle">
+          驗證碼已發送至您綁定的手機 <b>0912****347</b>，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒
+        </p>
+
         <div class="otp-row" id="otpRow">
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 1 碼">
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 2 碼">
@@ -449,6 +455,26 @@
   var MAX_RESENDS = 3;
   var resendCount = 0;
 
+  // 有效時間倒數（交易代碼那行）：跟上面 timer（重發倒數）是各自獨立的計時器變數，
+  // 互不干擾。歸零時直接叫 showResult(true) 跳去「驗證已逾時」，這頁原本沒有這個
+  // 機制——逾時頁 2026-08-04 之前只能從 demo 狀態列手動點出來看，不會真的自動觸發
+  var VALIDITY_SEC = 180;
+  var validityTimer = null;
+  var validityLeft = VALIDITY_SEC;
+  var validitySecEl = document.getElementById('validitySec');
+
+  function startValidityCountdown() {
+    clearInterval(validityTimer);
+    validityLeft = VALIDITY_SEC;
+    validitySecEl.textContent = validityLeft;
+    validityTimer = setInterval(function () {
+      validityLeft--;
+      if (validityLeft <= 0) { clearInterval(validityTimer); showResult(true); }
+      else validitySecEl.textContent = validityLeft;
+    }, 1000);
+  }
+  function stopValidityCountdown() { clearInterval(validityTimer); }
+
   /* ---------- 步驟切換 ---------- */
   function showStep(n, opts) {
     opts = opts || {};
@@ -629,6 +655,9 @@
       verifyBtn.disabled = true;
       clearInterval(timer);
       resendRow.innerHTML = '';
+      // 30 分鐘鎖定蓋過 3 分鐘的驗證碼有效時間，鎖定中不該讓它繼續倒數
+      // （不然歸零會跳去「驗證已逾時」頁，蓋掉這裡的鎖定訊息）
+      stopValidityCountdown();
     }
   }
 
@@ -685,6 +714,7 @@
 
   /* ---------- Step 3 ---------- */
   function goStep3() {
+    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
     showStep(3);
     resetPw();
     pw.focus();
@@ -745,7 +775,8 @@
   // 都是流程終點，要真的連到登入頁；只有「驗證已逾時」可重試，回到步驟①
   var resultBtnMode = 'success';   // success | demo-reset | blocked
   function showResult(expired) {
-    // 逾時的是「驗證碼」本身（10 分鐘有效期，見設計清單待確認事項），
+    stopValidityCountdown();   // 保險：不管從真倒數觸發還是 demo 按鈕直接跳進來，都確保停乾淨
+    // 逾時的是「驗證碼」本身（3 分鐘有效期，2026-08-04 定案，交易代碼那行的倒數就是它），
     // 代表使用者卡在步驟②——驗證碼還沒送出成功就過期，不是走完②才逾時。
     // stopAt:2 讓 stepper 停在②（不打勾），③維持未開始，別誤導成「驗證已通過」。
     showStep(4, expired ? { expired: true, stopAt: 2 } : {});
@@ -757,7 +788,7 @@
     if (expired) {
       resultTitle.textContent = '驗證已逾時';
       resultDesc.style.display = '';
-      resultDesc.innerHTML = '為了保護您的帳號，超過 <b>10 分鐘</b>未完成的驗證會自動失效，請重新開始。';
+      resultDesc.innerHTML = '為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。';
       resultBtnLabel.textContent = '重新開始';
       resultBtnMode = 'demo-reset';
     } else {
@@ -793,6 +824,7 @@
   };
 
   function showBlocked(kind) {
+    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
     var c = BLOCKED[kind];
     showStep(4, { blocked: true });   // 步驟①②已完成、③未達成，不可全打勾
     resultHero.classList.remove('warn');
@@ -843,6 +875,7 @@
     clearMsg(msg2);
     verifyBtn.disabled = true;
     verifyLabel.textContent = '驗證';
+    startValidityCountdown();
   }
   function resetPw() {
     pw.value = ''; pw2.value = '';
@@ -867,6 +900,7 @@
 
   function setState(s) {
     clearInterval(timer);
+    stopValidityCountdown();   // demo 切狀態前先停掉，避免舊倒數在背景繼續跑
 
     if (s === 's1' || s === 's1-format' || s === 's1-captcha' || s === 's1-both') {
       showStep(1); resetStep1();
