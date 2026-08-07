@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>F1 Session 逾時提醒 — 提案</title>
+<title>F1 建議改密碼提醒 — 提案</title>
 <link rel="stylesheet" href="auth-tokens.css?v=20260807e">
 <style>
-  /* 這個 Modal 是全站共用元件，不屬於單一頁面，背景不是登入前版型。
-     背景改用 iframe 直接載入已上線的「E8D 後台導覽結構原型」
-     （https://alvieforwork.github.io/e8d-nav-prototype/），
-     不用自己拼假的側欄/內容佔位——PM 看到的背景是真實畫面，
-     且原型之後更新這裡不用跟著手動同步 */
+  /* 跟 F1-Session逾時提醒-提案.html 同一套做法：這個 Modal 是全站共用元件，
+     不屬於單一頁面，背景不是登入前版型。背景改用 iframe 直接載入已上線的
+     「E8D 後台導覽結構原型」，不用自己拼假的側欄/內容佔位——PM 看到的
+     背景是真實畫面，且原型之後更新這裡不用跟著手動同步 */
   * { box-sizing: border-box; }
   html, body { margin: 0; font-family: var(--font); background: var(--bg-page); color: var(--text-primary); }
 
@@ -65,18 +64,22 @@
 
 <iframe class="bg-frame" src="https://alvieforwork.github.io/e8d-nav-prototype/" title="E8D 後台導覽結構原型（背景示意，非本次設計重點）"></iframe>
 
-<!-- Session 逾時警告 Modal：閒置一段時間後疊在使用者當下畫面上方 -->
+<!-- 建議改密碼提醒 Modal：密碼超過設定天數未更新時，登入後疊在畫面上方。
+     不強制——兩顆按鈕都只是關掉 modal，不會擋住使用者操作平台。
+     「半年後再跳出來」這件事是後端記錄「使用者上次按了暫不變更的時間」，
+     不是這個畫面要處理的邏輯，見下方 PASSWORD_AGE_DAYS 的說明 -->
 <div class="modal-mask show" id="modalMask">
   <div class="modal">
-    <div class="modal-head"><div class="modal-title">即將登出</div></div>
-    <!-- 2026-08-06：「閒置一段時間」改成講明時長。
-         模糊講法會讓使用者不知道自己觸發了什麼規則、下次要多久才會再遇到；
-         講明「1 小時」他才能判斷這是正常機制還是出了問題。
-         數字由下方 SESSION_TIMEOUT_MIN 填入，畫面不寫死 -->
-    <div class="modal-body">您已閒置 <b id="idleSpan">1 小時</b>，為了保護帳號安全，系統即將自動登出。</div>
+    <div class="modal-head"><div class="modal-title">建議更新密碼</div></div>
+    <!-- 數字由下方 PASSWORD_AGE_DAYS 填入，跟 Session 逾時 modal 同一個做法，
+         畫面不寫死；「不強制」用字面上的「建議」帶過，不用驚嘆號或警示色 -->
+    <div class="modal-body">您的密碼已使用超過 <b id="ageSpan">半年</b>，為了帳號安全，建議您定期更新密碼。</div>
     <div class="modal-foot">
-      <button class="m-btn m-btn-secondary" id="logoutBtn">登出</button>
-      <button class="m-btn m-btn-primary" id="stayBtn">繼續使用</button>
+      <!-- ⚠️「更新密碼」目前沒有真的頁面可以連——變更密碼頁歸在 F8（我的帳號設定），
+           尚未動工。Alvie 2026-08-07 確認先讓這顆鈕跟「暫不變更」一樣單純關掉 modal，
+           等 F8 那頁做出來後再把這裡換成真的連結，不要生一個假頁面出來墊檔 -->
+      <button class="m-btn m-btn-secondary" id="laterBtn">暫不變更</button>
+      <button class="m-btn m-btn-primary" id="updateBtn">更新密碼</button>
     </div>
   </div>
 </div>
@@ -87,32 +90,31 @@
 </div>
 
 <script>
-  /* ===== 可調整設定（2026-08-06）=====
-     SESSION_TIMEOUT_MIN — 閒置多久跳出「即將登出」提醒，預設 60 分鐘。
-     ⚠️ 這是 config 值不是寫死的規則，主管要調就改這一個數字，
-        modal 上那句話會跟著變（60 → 顯示「1 小時」、90 → 顯示「90 分鐘」）。
-     ⚠️ modal 出現後多久真的登出，Alvie 已定案**不做倒數秒數**——
-        看著秒數跳只會製造壓迫感，使用者要的是「還能不能繼續用」。 */
-  var SESSION_TIMEOUT_MIN = 60;
+  /* ===== 可調整設定（2026-08-07）=====
+     PASSWORD_AGE_DAYS — 密碼使用滿幾天觸發這個提醒，預設半年（180 天）。
+     ⚠️ 這是 config 值不是寫死的規則，主管要調就改這一個數字。
+     ⚠️ 「使用者按了暫不變更之後，下次半年到期才會再跳出來」——這條規則
+        要靠後端記錄「上次提醒/上次變更密碼」的時間，原型沒有後端狀態，
+        這裡只做「跳出來給你看」，不模擬真的半年週期。 */
+  var PASSWORD_AGE_DAYS = 180;
 
-  // 60 的整數倍講「小時」比較好讀，其餘照分鐘講
-  function idleText(min) {
-    return (min >= 60 && min % 60 === 0) ? (min / 60) + ' 小時' : min + ' 分鐘';
+  // 180 天整除 30 講「半年」比較好讀，其餘照天數講（例如未來若改成 90 天）
+  function ageText(days) {
+    return (days === 180) ? '半年' : days + ' 天';
   }
-  document.getElementById('idleSpan').textContent = idleText(SESSION_TIMEOUT_MIN);
+  document.getElementById('ageSpan').textContent = ageText(PASSWORD_AGE_DAYS);
 
   var mask = document.getElementById('modalMask');
   document.getElementById('reopenBtn').addEventListener('click', function () {
     mask.classList.add('show');
   });
-  // 繼續使用＝延長 session，關閉提醒留在原本畫面
-  document.getElementById('stayBtn').addEventListener('click', function () {
+  // 暫不變更：關掉提醒，留在原本畫面，不強制操作
+  document.getElementById('laterBtn').addEventListener('click', function () {
     mask.classList.remove('show');
   });
-  // 登出＝真的登出，導回登入頁；帶 ?timeout=1 讓登入頁顯示「工作階段已逾時」提示，
-  // 不是空白乾淨的登入頁（也不是走一般登出應該有的其他提示，這裡專指逾時觸發的登出）
-  document.getElementById('logoutBtn').addEventListener('click', function () {
-    window.location.href = 'F1登入頁-提案.html?timeout=1';
+  // 更新密碼：見上方註解，F8 變更密碼頁做出來前先跟「暫不變更」同行為
+  document.getElementById('updateBtn').addEventListener('click', function () {
+    mask.classList.remove('show');
   });
 </script>
 

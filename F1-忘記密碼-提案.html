@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 忘記密碼／找回帳號 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807e">
 <script src="demo-mode.js?v=20260801"></script>
 <!-- 這頁的 OTP 主邏輯是自己一套（歷史因素），載入 otp-shared.js 只為了共用
      initCodeChoice()——不呼叫 initOtpVerifier() 就不會有其他副作用 -->
@@ -422,7 +422,6 @@
   var sendLabel   = document.getElementById('sendLabel');
 
   var otpRow      = document.getElementById('otpRow');
-  var otpInputs   = Array.prototype.slice.call(otpRow.querySelectorAll('input'));
   var msg2        = document.getElementById('msg2');
   var msg2Text    = document.getElementById('msg2Text');
   var resendRow   = document.getElementById('resendRow');
@@ -447,55 +446,16 @@
   var iconWarn    = document.getElementById('iconWarn');
   var iconBlock   = document.getElementById('iconBlock');
 
-  /* 2026-08-06：次數改讀 otp-shared.js 的 OTP_MAX_ATTEMPTS（3 次），這頁不再自己寫死。
-     ⚠️ 這 3 次跟帳密錯誤的 5 次是**分開的兩套**，刻意不對齊 */
-  var MAX_OTP_ATTEMPTS = (typeof OTP_MAX_ATTEMPTS !== 'undefined') ? OTP_MAX_ATTEMPTS : 3;
-  var otpAttemptsLeft = MAX_OTP_ATTEMPTS;
-  var timer = null;
-
-  /* 有效時間倒數：跟上面 timer（重發倒數）是各自獨立的計時器變數，互不干擾。
-
-     2026-08-05：歸零不再跳「驗證已逾時」結果頁，改成就地提示——說明句那段
-     換成「驗證碼已失效，請重新發送」，重發鈕立刻變可按，輸入框**不鎖**
-     （使用者仍可打，只是打了一定失敗）。使用者要的只是再一組碼，
-     不該為此被丟回步驟①重走一次。 */
-  /* 2026-08-06：秒數改讀 otp-shared.js 最上方的 OTP_VALIDITY_SEC，這頁不再自己寫死。
-     這頁的 OTP 主邏輯雖然仍是獨立一份，但「有效時間幾秒」這個設定值三頁必須一致——
-     接 SafeSay 後使用者要離開畫面去領碼，之後很可能要調高，只該有一個地方要改 */
-  var VALIDITY_SEC = (typeof OTP_VALIDITY_SEC !== 'undefined') ? OTP_VALIDITY_SEC : 180;
-  var RESEND_SEC   = (typeof OTP_RESEND_SEC   !== 'undefined') ? OTP_RESEND_SEC   : 60;
-  var validityTimer = null;
-  var validityLeft = VALIDITY_SEC;
+  /* 2026-08-07：輸入行為／輸錯鎖定／重發兩態／有效時間倒數，改用共用模組
+     （otp-shared.js 的 initOtpVerifier()），跟另外兩個 OTP 頁（日常登入、
+     首次設定）同一套邏輯——這頁原本是三頁裡唯一沒接共用模組的（歷史因素），
+     次數／秒數這兩個設定值雖然已經改讀 OTP_MAX_ATTEMPTS／OTP_VALIDITY_SEC，
+     但輸入／鎖定／倒數的程式邏輯還是自己一份，每次調整都要跟另外兩頁手動
+     核對行為一不一致（.otp-footer 那次間距調整就改了兩次）。整併之後三頁
+     共用同一份實作，改一次三頁同步生效，這裡只留頁面自己需要的元素參照 */
   var validitySecEl = document.getElementById('validitySec');
   var validityWrap  = document.getElementById('validityWrap');
   var guideLine     = document.getElementById('guideLine');
-  var otpExpired = false;
-
-  // 畫面上「有效時間 NNN 秒」的初始數字由這裡填，HTML 裡的只是佔位
-  validitySecEl.textContent = VALIDITY_SEC;
-
-  function setExpired(on) {
-    otpExpired = !!on;
-    validityWrap.classList.toggle('is-expired', otpExpired);
-  }
-
-  function startValidityCountdown() {
-    clearInterval(validityTimer);
-    setExpired(false);
-    validityLeft = VALIDITY_SEC;
-    validitySecEl.textContent = validityLeft;
-    validityTimer = setInterval(function () {
-      validityLeft--;
-      if (validityLeft <= 0) {
-        clearInterval(validityTimer);
-        setExpired(true);
-        // 碼過期的當下就讓重發可按，不要求使用者再等重發倒數跑完
-        clearInterval(timer);
-        renderResendRow('ready');
-      } else validitySecEl.textContent = validityLeft;
-    }, 1000);
-  }
-  function stopValidityCountdown() { clearInterval(validityTimer); }
 
   /* ---------- 步驟切換 ---------- */
   function showStep(n, opts) {
@@ -632,217 +592,80 @@
   });
 
   /* ---------- Step 2 ---------- */
-  function goStep2() {
-    showStep(2);
-    resetOtp();
-    startCountdown(RESEND_SEC);
-    otpInputs[0].focus();
-  }
-
-  otpInputs.forEach(function (input, i) {
-    input.addEventListener('input', function () {
-      this.value = this.value.replace(/\D/g, '').slice(0, 1);
-      this.classList.toggle('filled', this.value !== '');
-      clearMsg(msg2); otpRow.classList.remove('is-error'); codeChoice.clearError();
-      if (this.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
-      syncVerifyBtn();
-    });
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Backspace' && !this.value && i > 0) {
-        otpInputs[i - 1].focus();
-        otpInputs[i - 1].value = '';
-        otpInputs[i - 1].classList.remove('filled');
-        syncVerifyBtn();
-      }
-      if (e.key === 'ArrowLeft'  && i > 0) otpInputs[i - 1].focus();
-      if (e.key === 'ArrowRight' && i < otpInputs.length - 1) otpInputs[i + 1].focus();
-    });
-    input.addEventListener('paste', function (e) {
-      e.preventDefault();
-      var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-      if (!text) return;
-      otpInputs.forEach(function (inp, k) {
-        inp.value = text[k] || '';
-        inp.classList.toggle('filled', inp.value !== '');
-      });
-      otpInputs[Math.min(text.length, otpInputs.length - 1)].focus();
-      clearMsg(msg2); syncVerifyBtn();
-    });
-    input.addEventListener('focus', function () { this.select(); });
-  });
-
-  function otpValue() { return otpInputs.map(function (i) { return i.value; }).join(''); }
-
-  /* 驗證代碼四選一：元件本身共用 otp-shared.js 的 initCodeChoice()，
-     只有「接線」這段因為這頁沒用 initOtpVerifier() 而要自己寫。
-     選完代碼把游標接到還沒填的那一格，省使用者再點一次輸入框 */
-  function focusNextEmptyOtp() {
-    for (var i = 0; i < otpInputs.length; i++) {
-      if (!otpInputs[i].value) { otpInputs[i].focus(); return; }
-    }
-    // 六格都填滿就不搶焦點——使用者接下來要按的是「驗證」
-  }
-
+  /* 驗證代碼四選一：跟另外兩頁同一份 initCodeChoice()。選完代碼要回頭叫
+     recheck()，否則「先填滿六格、後選代碼」不會自動變成可送出；
+     順手把游標接到第一個還沒填的格子，省使用者再點一次輸入框 */
+  var otp;
   var codeChoice = initCodeChoice({
     row: document.getElementById('codeChoiceRow'),
-    onChange: function () { syncVerifyBtn(); focusNextEmptyOtp(); }
+    onChange: function () { if (otp) { otp.recheck(); otp.focusNextEmpty(); } }
   });
-
-  /* 「可以送出」＝六格填滿且已選代碼，跟 2FA 兩頁（otp-shared.js）行為一致。
-     2026-08-05：**只切換按鈕狀態，不自動送出**——這是「四選一代碼＋六位數」
-     雙重驗證，填滿第六碼就搶先送出會讓還沒選代碼／還想核對的人白吃一次錯誤次數。
-     送出一律由使用者自己按「驗證」觸發（下方 verifyBtn 的 click）。 */
-  function syncVerifyBtn() {
-    verifyBtn.disabled = !(otpValue().length === 6 && !!codeChoice.getSelected());
-  }
-
-  // demo 固定測試碼，跟 2FA 兩頁同一組；輸錯走下方 showOtpError() 的遞減與鎖定
-  var CORRECT_OTP = '123456';
 
   /* 2026-08-01：帳號狀態的分岔改用測試手機號觸發，取代 demo 狀態列直接跳畫面。
      判斷放在 OTP 驗證通過之後才做——維持「先證明持有該手機、才揭露帳號狀態」
      的原則，不會變成沒驗證身份就能查帳號狀態的列舉管道。
-     其他任何符合格式的號碼一律走正常路徑，PM 誤打別的號碼不會卡住。 */
-  /* key 用正規化後的 9 碼版本（去掉開頭 0）—— doVerify() 一律用正規化過的號碼查表，
-     使用者不論打 0900000002 還是 900000002 都要能對上同一筆 */
+     其他任何符合格式的號碼一律走正常路徑，PM 誤打別的號碼不會卡住。
+     key 用正規化後的 9 碼版本（去掉開頭 0）—— onSuccess 一律用正規化過的號碼
+     查表，使用者不論打 0900000002 還是 900000002 都要能對上同一筆 */
   var PHONE_OUTCOMES = {
     '900000002': 'disabled'
   };
 
-  function doVerify() {
-    otpRow.classList.add('is-loading');
-    codeChoice.setDisabled(true);
-    verifyBtn.disabled = true;
-    verifyLabel.innerHTML = '<span class="spinner"></span>驗證中';
-    setTimeout(function () {
-      otpRow.classList.remove('is-loading');
-      codeChoice.setDisabled(false);
-      verifyLabel.textContent = '驗證';
-      // 代碼選錯、驗證碼打錯、碼已過期，一律視為同一件事：驗證失敗、吃掉一次機會。
-      // 不分開講是哪個錯——分開講等於告訴攻擊者「代碼你猜對了」。
-      // 過期後即使打對也不給過：那組碼在真實系統裡已經不能用了
-      if (otpExpired || otpValue() !== CORRECT_OTP || !codeChoice.isCorrect()) { showOtpError(); return; }
+  otp = initOtpVerifier({
+    otpRow: otpRow,
+    verifyBtn: verifyBtn,
+    verifyLabelEl: verifyLabel,
+    errorBox: msg2,
+    errorTextEl: msg2Text,
+    resendRow: resendRow,
+    validityEl: validitySecEl,
+    validityWrap: validityWrap,
+    codeChoice: codeChoice,
+    // demo 固定測試碼，跟另外兩頁同一組；輸錯走共用模組的遞減與鎖定
+    checkCode: function (code) { return code === '123456'; },
+    onSuccess: function () {
       var outcome = PHONE_OUTCOMES[normalizePhone(phone.value)];
       if (outcome) showBlocked(outcome);
       else goStep3();
-    }, 1000);
-  }
-
-  verifyBtn.addEventListener('click', function () {
-    if (!verifyBtn.disabled) doVerify();
+    }
   });
 
-  function showOtpError() {
-    otpAttemptsLeft = Math.max(0, otpAttemptsLeft - 1);
-    otpRow.classList.remove('is-error');
-    void otpRow.offsetWidth;
-    otpRow.classList.add('is-error');
-    codeChoice.showError();
-    if (otpAttemptsLeft > 0) {
-      showMsg(msg2, msg2Text, 'error', '驗證碼錯誤，還可以再嘗試 <b>' + otpAttemptsLeft + '</b> 次');
-      // 錯了就清空六格、游標回第一格，跟 otp-shared.js 的行為一致
-      // （不清空的話舊碼還留著＝已填滿，使用者改一格就立刻重送，白吃一次機會）
-      otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
-      // 代碼選取一併清掉：不清的話使用者只會一直重打六位數，
-      // 若錯的其實是代碼，他會一路錯到鎖定都不知道要回頭看代碼
-      codeChoice.clearSelection();
-      verifyBtn.disabled = true;
-      otpInputs[0].focus();
-    } else {
-      /* 2026-08-06：鎖定規則定案為**永久鎖、只能人工解鎖**（與 otp-shared.js 一致）。
-         不可出現任何「XX 後再試」的承諾——等到了還是進不去比一開始就講清楚更糟。
-         「聯絡客服」是行內連結（樣式見 auth-tokens.css 的 .msg a） */
-      showMsg(msg2, msg2Text, 'error', '錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖');
-      otpRow.classList.add('is-disabled');
-      codeChoice.setDisabled(true);
-      verifyBtn.disabled = true;
-      clearInterval(timer);
-      resendRow.innerHTML = '';
-      // 鎖定蓋過 3 分鐘的驗證碼有效時間，鎖定中不該讓它繼續倒數
-      // （不然歸零會把說明改成「已失效，請重新發送」，跟「請聯絡客服解鎖」互相打架）
-      stopValidityCountdown();
-    }
+  function goStep2() {
+    showStep(2);
+    clearLockedOnLoad();
+    otp.reset();
+    otp.startCountdown(56);
   }
 
   /* ---------- 「已鎖定」進站狀態 ----------
      使用者輸錯達上限之後**重新整理再回到這一頁**會看到的畫面。
 
-     這跟 showOtpError() 觸發的「當場錯滿第 3 次」不是同一件事：那一刻有抖動動畫、
-     有剛扣掉的次數；重整回來則是靜靜地一進站就鎖著，而且**系統沒有再發簡訊**——
-     所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」換成「錯誤次數過多，請聯絡客服」，
-     引導句整段收起來，重發那行清空（不清的話重整一次就能多送一則簡訊）。
-     跟 F1-2FA驗證頁-提案.html 的 showLockedOnLoad() 同一個道理，這頁因為 OTP
-     主邏輯是獨立一份（歷史因素），所以另外寫一份對應的函式，不是共用同一支。
+     這跟共用模組 lockNow()（當場錯滿那一刻，showError() 觸發）不是同一件事：
+     那一刻有抖動動畫、有剛扣掉的次數；重整回來則是靜靜地一進站就鎖著，而且
+     **系統沒有再發簡訊**——所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」
+     換成「錯誤次數過多，請聯絡客服」，引導句整段收起來，重發那行清空
+     （不清的話重整一次就能多送一則簡訊）。跟另外兩個 OTP 頁的
+     showLockedOnLoad() 同一個做法：otp.lock() 已經處理輸入框停用／四選一
+     停用／清空重發區／停止倒數，這裡只補這頁自己的「說明句換掉、引導句
+     收起來」，並把 otp.lock() 順便顯示出來的 errorBox 訊息收掉（說明句
+     已經把話講完，兩個地方都講會變成同一件事講兩次）。
 
      真實系統靠後端查這支手機號對應帳號的鎖定狀態；原型沒有後端，用 demo 狀態列模擬。 */
   function showLockedOnLoad() {
-    otpAttemptsLeft = 0;
-    otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
-    otpRow.classList.add('is-disabled');
-    codeChoice.setDisabled(true);
-    verifyBtn.disabled = true;
-    clearInterval(timer);
-    resendRow.innerHTML = '';
-    stopValidityCountdown();
+    otp.lock();
     validityWrap.classList.add('is-locked');
     guideLine.style.display = 'none';
-    // 下方 .msg 紅字要收掉——說明句已經把「錯太多次、鎖了、怎麼辦」一次講完，
-    // 留著等於同一件事講兩次（跟 F1-2FA驗證頁-提案.html 同一個理由）
-    clearMsg(msg2);
+    msg2.classList.remove('show', 'error');
   }
   function clearLockedOnLoad() {
     validityWrap.classList.remove('is-locked');
     guideLine.style.display = '';
   }
 
-  /* ---------- 重新發送：狀態區塊，同一格永遠只顯示一種內容 ----------
-     2026-08-05：拿掉第三態「今日簡訊次數已達上限」——每日發送次數上限
-     這條規則已取消，只剩倒數中／可重發兩態。「輸錯 5 次鎖定」是另一回事，
-     在上面 showOtpError() 裡，完整保留。
-     倒數中／可重發，兩態互斥，不併排、不疊加 */
-  function renderResendRow(state, sec) {
-    if (state === 'counting') {
-      resendRow.innerHTML = '沒收到簡訊？<span class="countdown">' + sec + '</span> 秒後可重新發送';
-      return;
-    }
-    if (state === 'ready') {
-      resendRow.innerHTML =
-        '沒收到簡訊？<button class="resend-btn" type="button" id="resendBtn">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>' +
-          // 2026-08-06：接 SafeSay 後發出去的是「一則帶連結的簡訊」不是驗證碼，
-          // 說明句已改成「請點簡訊中的連結」，這顆鈕不能再講「重新發送驗證碼」
-          '重新發送簡訊</button>';
-      document.getElementById('resendBtn').addEventListener('click', function () {
-        resendRow.innerHTML =
-          '<span class="resend-sent">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
-            '已重新發送</span>';
-        // 重發＝拿到一組新碼：有效時間從頭跑、失效提示收掉
-        startValidityCountdown();
-        setTimeout(function () { startCountdown(RESEND_SEC); }, 1600);
-      });
-      return;
-    }
-  }
-
-  function startCountdown(sec) {
-    clearInterval(timer);
-    var left = sec;
-    render();
-    timer = setInterval(function () {
-      left--;
-      if (left <= 0) {
-        clearInterval(timer);
-        renderResendRow('ready');
-      } else render();
-    }, 1000);
-    function render() { renderResendRow('counting', left); }
-  }
-
   /* ---------- Step 3 ---------- */
   function goStep3() {
-    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopTimeout();       // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopResendTimer();
     showStep(3);
     resetPw();
     pw.focus();
@@ -907,7 +730,8 @@
      結果頁現在只剩「密碼已更新」一種成功狀態。 */
   var resultBtnMode = 'success';   // success | blocked
   function showResult() {
-    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopTimeout();   // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopResendTimer();
     showStep(4);
     resultHero.classList.remove('error', 'warn');
     iconDone.style.display = 'block';
@@ -936,8 +760,8 @@
      給攻擊者一個帳號列舉的管道，違背當初把忘記密碼／忘記帳號合併成
      單一 OTP 流程要防的事。stepper 因此比照「逾時」用預設 logical（不傳
      stopAt），呈現步驟①②已完成、卡在③之前，而不是卡在步驟①。
-     2026-08-01：正式觸發點改成 doVerify() 裡的 PHONE_OUTCOMES（測試手機號
-     0900000002），demo 狀態列的 s2-disabled
+     2026-08-01：正式觸發點改成 initOtpVerifier() 的 onSuccess 裡查
+     PHONE_OUTCOMES（測試手機號 0900000002），demo 狀態列的 s2-disabled
      那顆按鈕保留給不想重跑一次 OTP 流程時的快速預覽用。
      2026-08-05：移除「非母帳號」分支——子帳號已可自行找回帳密，不再擋人，
      這裡只剩「帳號已停用」一種阻斷理由。 */
@@ -950,7 +774,8 @@
   };
 
   function showBlocked(kind) {
-    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopTimeout();   // 已離開步驟②，驗證碼有效時間不再相關
+    otp.stopResendTimer();
     var c = BLOCKED[kind];
     showStep(4, { blocked: true });   // 步驟①②已完成、③未達成，不可全打勾
     resultHero.classList.remove('warn');
@@ -997,17 +822,6 @@
     applyPhoneMaxLen();
     runTurnstile();   // 回到步驟①＝新的一輪，重新取得 token
   }
-  function resetOtp() {
-    otpAttemptsLeft = MAX_OTP_ATTEMPTS;
-    otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
-    otpRow.classList.remove('is-error', 'is-loading', 'is-disabled');
-    codeChoice.reset();   // 重新洗牌：這是新的一輪，代碼本來就該換位置
-    clearMsg(msg2);
-    verifyBtn.disabled = true;
-    verifyLabel.textContent = '驗證';
-    clearLockedOnLoad();  // 這是「新的一輪」，不該殘留上一輪「已鎖定」的說明句/隱藏的引導句
-    startValidityCountdown();
-  }
   function resetPw() {
     pw.value = ''; pw2.value = '';
     pw.type = 'password'; pw2.type = 'password';
@@ -1036,8 +850,8 @@
   }
 
   function setState(s) {
-    clearInterval(timer);
-    stopValidityCountdown();   // demo 切狀態前先停掉，避免舊倒數在背景繼續跑
+    otp.stopResendTimer();   // demo 切狀態前先停掉，避免舊倒數在背景繼續跑
+    otp.stopTimeout();
 
     if (s === 's1' || s === 's1-format' || s === 's1-turnstile' || s === 's1-ts-interactive') {
       showStep(1); resetStep1();
@@ -1066,33 +880,37 @@
     // 通過前（步驟①）一律模糊回應，不透露帳號是否存在／狀態，避免帳號列舉攻擊。
     if (s === 's2-disabled') { showBlocked('disabled'); return; }
 
-    // 已鎖定、重新整理再進來：不走 resetOtp()（那是「新的一輪」的邏輯，
-    // 會重新洗牌、重新倒數），這裡要的是「一進站就是鎖著的」靜態畫面
-    if (s === 's2-locked-return') { showStep(2); showLockedOnLoad(); return; }
+    // 已鎖定、重新整理再進來：不走 otp.reset()（那是「新的一輪」的邏輯，
+    // 會重新洗牌、重新倒數），這裡要的是「一進站就是鎖著的」靜態畫面。
+    // 跟另外兩頁同一個做法：先 reset() 清乾淨、停掉 reset() 剛啟動的重發倒數，
+    // 再叫 showLockedOnLoad() 進鎖定
+    if (s === 's2-locked-return') {
+      showStep(2);
+      otp.reset();
+      otp.stopResendTimer();
+      showLockedOnLoad();
+      return;
+    }
 
     if (s === 's2' || s === 's2-error' || s === 's2-locked' || s === 's2-expired') {
-      showStep(2); resetOtp();
-      if (s === 's2') { startCountdown(56); otpInputs[0].focus(); }
+      showStep(2);
+      clearLockedOnLoad();
+      otp.reset();
+      if (s === 's2') { otp.startCountdown(56); }
       if (s === 's2-error') {
-        startCountdown(38);
-        ['1','2','3','4','5','9'].forEach(function (v, k) {
-          otpInputs[k].value = v; otpInputs[k].classList.add('filled');
-        });
-        showOtpError();
+        otp.startCountdown(38);
+        otp.fillDemo(['1','2','3','4','5','9']);
+        otp.showError();
       }
       if (s === 's2-locked') {
-        otpAttemptsLeft = 1;
-        ['1','2','3','4','5','9'].forEach(function (v, k) {
-          otpInputs[k].value = v; otpInputs[k].classList.add('filled');
-        });
-        showOtpError();
+        otp.setAttemptsLeft(1);
+        otp.fillDemo(['1','2','3','4','5','9']);
+        otp.showError();
       }
       // 碼過期就地提示：說明句換成「驗證碼已失效」＋重發變可按，輸入框不鎖
       if (s === 's2-expired') {
-        stopValidityCountdown();   // resetOtp() 剛啟動的倒數要先停掉，否則會把提示蓋回去
-        clearInterval(timer);
-        setExpired(true);
-        renderResendRow('ready');
+        otp.stopResendTimer();   // reset() 剛啟動的倒數要先停掉，否則一秒後被蓋回去
+        otp.expire();
       }
       return;
     }
