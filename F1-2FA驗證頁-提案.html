@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 2FA 簡訊驗證頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260804"></script>
+<script src="otp-shared.js?v=20260806s"></script>
 <style>
 
   /* 表單／驗證已逾時互斥切換 */
@@ -33,6 +33,28 @@
     transition: color .12s ease;
   }
   .subtitle a:hover { color: var(--info-700); }
+  /* 「進站即鎖定」訊息裡的「聯絡客服」：蓋掉上面 .subtitle a 的藍色連結樣式。
+     這句話本身是紅字（.locked 繼承 --text-error），連結該跟著同色，
+     不是另外開一個藍色出口——一句紅字裡混一個藍連結會變成兩個色系在打架。
+     樣式跟其他鎖定訊息裡的客服連結（auth-tokens.css 的 .msg a）統一：不加底線。
+
+     hover 效果改了四次：① brightness(0.85) 壓暗——暗下去的紅偏濁（豬肝紅）；
+     ② 淡底色 highlight——Alvie 看過覺得不需要那個框；③ filter:saturate(1.5)——
+     方向對但在已經很飽和的紅上幾乎看不出差異；④ 現在：Alvie 指定固定色碼
+     #E42C2F 試看看，比 --text-error 略深一點、彩度也收一點，兩色並排比較過
+     看起來自然，跟共用檔的 .msg a:hover 用同一個色碼 */
+  .subtitle .locked a {
+    color: inherit; font-weight: var(--fw-semi);
+    text-decoration: none; cursor: pointer;
+    transition: color .12s ease;
+  }
+  /* ⚠️ hover 用固定色碼而不是 color:inherit，剛好順便解掉另一個問題——
+     auth-tokens.css 裡還有一條 .auth-card .subtitle a:hover{color:var(--info-700)}
+     （給一般藍色連結用），特異度跟這條打平；這裡直接指定色碼會贏過那條
+     （2026-08-06 用 filter 版本時就已經抓到這個坑，重申一次 color 才會贏） */
+  .subtitle .locked a:hover {
+    color: #E42C2F;
+  }
 
   /* ---- 6 格驗證碼 ---- */
   .otp-row input::-webkit-outer-spin-button,
@@ -43,42 +65,24 @@
 
   /* 驗證中：整排變淡不可點 */
 
-  /* ---- 備用碼：單一輸入框（英數混合、使用者多半用貼上的） ---- */
-  .backup-field { display: none; margin-bottom: var(--space-md); }
-  .backup-field.show { display: block; }
-  .backup-field input {
-    width: 100%; height: 56px;
-    padding: 0 var(--space-lg);
-    text-align: center;
-    font-family: var(--font);
-    font-size: 18px; font-weight: 600;
-    letter-spacing: 4px;
-    /* 備用碼在綁定引導頁是用小寫產生的，這裡就不轉大寫——
-       使用者貼上後看到的字要跟自己保存那份長得一樣，否則會以為貼錯 */
-    text-transform: lowercase;
-    color: var(--text-primary);
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-field);
-    outline: none;
-    transition: box-shadow .12s ease, border-color .12s ease;
-  }
-  .backup-field input::placeholder {
-    color: var(--text-disabled);
-    font-weight: 400; letter-spacing: 1px;
-  }
-  .backup-field input:focus {
-    border-color: var(--border-focus);
-    box-shadow: var(--focus-ring);
-  }
-  .backup-field.is-error input {
-    border-color: var(--border-error);
-    color: var(--text-error);
-  }
-  .backup-field.is-error input:focus { box-shadow: var(--error-ring); }
-  .backup-field.is-error { animation: shake .4s ease; }
-  .backup-field.is-loading { opacity: .5; pointer-events: none; }
-  @media (prefers-reduced-motion: reduce) { .backup-field.is-error { animation: none; } }
+  /* 2026-08-05：備用碼輸入框（.backup-field）的樣式全部移除 */
+
+  /* OTP 輸入框之後那一段（錯誤提示／重發／信任裝置／驗證鈕）的間距系統
+     （.otp-footer flex+gap）2026-08-07 搬進 auth-tokens.css 共用，
+     三個 OTP 頁一起套用，這裡不再重複定義——理由跟坑點的完整說明也搬過去了 */
+
+  /* 「信任這個裝置」在這頁要當次要選項，不能跟 OTP 輸入／驗證鈕搶視覺重心。
+     只調整未勾選時的顏色（比預設的 --text-secondary 再淡一階，
+     跟這頁重發區的提示字同一色階），勾選後的橘色照舊不變——
+     勾了就該清楚看到「已啟用」，弱化只該發生在靜態未勾選時。
+     ⚠️ 不動 checkbox 尺寸——那是系統元件既定規格，不為單一頁面另開一個尺寸變體 */
+  .check-line-subtle { color: var(--text-disabled); }
+  .check-line-subtle .box { border-color: var(--border-default); }
+  /* 2026-08-06 校正：天數原本用 <b> 加粗加深，跟說明句的「值」同一套處理——
+     但 Alvie 指出這裡不該有任何強調：這行本身已經是次要元素，
+     加粗的數字容易讓使用者誤以為那是可以點的東西。
+     改成純 <span>（純標籤沒有預設粗體，不用另外蓋 CSS），
+     整行自然繼承同一種字重、同一個顏色，不再特別標出「30」 */
 
   </style>
 </head>
@@ -116,17 +120,37 @@
         返回登入
       </a>
 
-      <h1 id="cardTitle">簡訊驗證碼</h1>
-      <!-- 交易代碼／有效時間串進同一句、同一行，不再另起一行。
-           2026-08-04 三度調整：sms／backup 兩種文案用內層 span 切換顯示，
-           不能用 cardSub.innerHTML 整段換掉——那樣每次切回 sms 都會重新
-           生成 #validitySec／#txCode 這兩個節點，otp-shared.js 在啟動時
-           只抓過一次舊節點的參照，之後倒數會更新到「已經不在畫面上」的
-           舊節點，畫面上的新節點永遠停在 180 不動（實測抓到過一次） -->
-      <p class="subtitle" id="cardSubtitle">
-        <span id="cardSubSms">驗證碼已發送至您綁定的手機 <b>0912****347</b>，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒</span>
-        <span id="cardSubBackup" style="display:none">輸入您保存的其中一組備用碼，每組只能用一次。</span>
-      </p>
+      <!-- 2026-08-06：三個 OTP 頁的標題統一成「簡訊驗證」（原本這頁「簡訊驗證碼」、
+           首次設定「驗證您的手機號碼」、忘記密碼「輸入驗證碼」，三頁各叫各的）。
+           統一的理由：三頁的使用者動作完全一樣（看簡訊→選代碼→打驗證碼），
+           標題不同會讓人以為要做不同的事——使用者不會去分析「這頁目的是綁定
+           還是驗證身分」。
+           選「簡訊驗證」而不是「雙重驗證」：它講的是**管道**不是機制，
+           三個情境都成立；「雙重驗證」在忘記密碼流程並不成立（那條路徑沒有
+           前一重密碼，只有手機這一重）。
+           接 SafeSay 後簡訊只帶連結，但起點仍是簡訊、使用者的動作也仍是
+           「去看簡訊」，所以講管道依然準確。
+           ⚠️ 語序不可寫成「驗證簡訊」——那讀起來是名詞（一封簡訊），
+              「簡訊驗證」才是「透過簡訊驗證」的動作語氣 -->
+      <h1>簡訊驗證</h1>
+      <!-- 有效時間串進同一句、同一行，不再另起一行。
+           #validitySec 這個節點不可被 innerHTML 整段重寫——otp-shared.js 啟動時
+           只抓過一次參照，重建的話倒數會更新到「已經不在畫面上」的舊節點，
+           畫面上的新節點永遠停在 180 不動（2026-08-04 實測抓到過一次）。
+           2026-08-05：交易代碼從這句拿掉——代碼改成四選一之後，
+           顯示在這裡等於把答案寫在題目旁邊。
+           2026-08-06 接 SafeSay：簡訊改成只帶連結、碼要去 SafeSay 讀取，
+           所以「已發送」補上受詞變「已發送簡訊」，並補上最關鍵卻一直沒講的
+           那一步「點簡訊中的連結」——不講的話使用者會盯著簡訊等數字。
+           ⚠️ 這裡的 180 只是佔位，實際數字由 otp-shared.js 的
+           OTP_VALIDITY_SEC 填入，要調秒數改那裡就好 -->
+      <!-- 引導句連同它前面的 <br> 一起包進 #guideLine：鎖定狀態要整段收起來
+           （沒有碼可以取，留著那句只會叫使用者去做一件做不到的事） -->
+      <p class="subtitle" id="cardSubtitle"><span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span></p>
+
+      <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
+           選項由 otp-shared.js 的 initCodeChoice() 產生並每次洗牌，三頁共用同一份 -->
+      <div class="code-choice-row" id="codeChoiceRow" role="radiogroup" aria-label="驗證代碼"></div>
 
       <!-- 6 格驗證碼 -->
       <div class="otp-row" id="otpRow">
@@ -138,47 +162,60 @@
         <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 6 碼">
       </div>
 
-      <!-- 備用碼：單一輸入框 -->
-      <div class="backup-field" id="backupField">
-        <input type="text" maxlength="8" placeholder="輸入 8 位備用碼" aria-label="備用碼" autocomplete="off" spellcheck="false">
-      </div>
+      <!-- 2026-08-06：錯誤提示／重發／信任裝置／驗證鈕，統一收進一個 flex column
+           容器用 gap 控制間距（原因見上方 <style> 裡 .otp-footer 的說明）。
 
-      <!-- 錯誤訊息：跟其他頁共用同一個 .msg 元件（原本這裡自己刷了 .error-msg，已統一） -->
-      <div class="msg" id="errorMsg">
-        <!-- Lucide: circle-alert -->
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-        </svg>
-        <span id="errorText">驗證碼錯誤，還可以再嘗試 4 次</span>
-      </div>
+           這裡也拿掉了原本重發過一次才出現的「還是收不到簡訊？聯絡客服」——
+           客服入口收斂成只留鎖定訊息裡的那個連結（Alvie 2026-08-06 定），
+           不在正常流程中再另開一個入口。
+           ⚠️ 這代表：使用者若一直收不到簡訊、卻沒有錯誤地打過驗證碼，
+              現在沒有辦法觸發鎖定，也就摸不到客服入口——這個缺口有跟 Alvie 提過。 -->
+      <div class="otp-footer" id="otpFooter">
 
-      <!-- 重新發送 -->
-      <div class="resend-row" id="resendRow"></div>
-
-      <button class="btn btn-primary" id="submitBtn" disabled>
-        <span id="submitLabel">驗證</span>
-      </button>
-
-      <div class="footer-divider"></div>
-      <p class="footer-links">
-        <span id="backupPrefix">收不到簡訊？</span><a href="#" id="backupLink">改用備用碼</a>
-      </p>
-
-      </div>
-
-      <!-- 驗證已逾時：獨立畫面，不算完成，跟找回帳密頁／2FA 綁定引導頁同一套規則 -->
-      <div class="pane" id="paneOtpTimeout">
-        <div class="result-hero warn">
-          <div class="circle">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
-            </svg>
-          </div>
-          <h1>驗證已逾時</h1>
-          <p>為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
+        <!-- 錯誤訊息：跟其他頁共用同一個 .msg 元件（原本這裡自己刷了 .error-msg，已統一） -->
+        <div class="msg" id="errorMsg">
+          <!-- Lucide: circle-alert -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <span id="errorText">驗證碼錯誤，還可以再嘗試 4 次</span>
         </div>
-        <button class="btn btn-primary" id="otpTimeoutBtn" style="margin-top:var(--space-lg)"><span>重新開始</span></button>
+
+        <!-- 重新發送 -->
+        <div class="resend-row" id="resendRow"></div>
+
+        <!-- 2026-08-06：信任這個裝置。2FA 強制啟用、每次登入都要驗，
+             這個勾選是唯一能讓常用電腦不必天天收簡訊的機制。
+             **只有日常登入這頁有**——首次設定那頁在綁手機（還沒有裝置可信任），
+             忘記密碼那頁不是登入，兩者都不該出現。
+             位置刻意放在主按鈕正上方：它是「按下驗證時要一起送出的選項」，
+             離送出動作最近才讀得通。
+             樣式用 .check-line-subtle（見上方 <style>）淡化成次要選項，
+             不跟 OTP 輸入／驗證鈕搶視覺重心。
+             天數由 otp-shared.js 的 TRUST_DEVICE_DAYS 填入，畫面不寫死 -->
+        <label class="check-line check-line-subtle" id="trustDevice">
+          <input type="checkbox">
+          <span class="box">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </span>
+          <span>信任這個裝置，<span id="trustDays">30</span> 天內不再驗證</span>
+        </label>
+
+        <button class="btn btn-primary" id="submitBtn" disabled>
+          <span id="submitLabel">驗證</span>
+        </button>
+
       </div>
+
+      <!-- 2026-08-05：底部「收不到簡訊？改用備用碼」整行（含分隔線）移除 -->
+
+      </div>
+
+      <!-- 2026-08-05：移除「驗證已逾時」獨立畫面。碼過期改成就地提示
+           （說明句換成「驗證碼已失效，請重新發送」＋重發鈕變可按），
+           使用者不用被丟到另一頁再重走一次流程 -->
     </div>
   </div>
 
@@ -191,39 +228,36 @@
   <button data-state="counting">倒數重發</button>
   <button data-state="error">驗證失敗</button>
   <button data-state="locked">錯誤達上限</button>
-  <button data-state="backup">改用備用碼</button>
-  <button data-state="daily">簡訊已達上限</button>
-  <button data-state="timeout">驗證已逾時</button>
+  <!-- 「錯誤達上限」是當場錯滿那一刻；這顆是隔天／重整後再進來看到的樣子，兩者畫面不同 -->
+  <button data-state="locked-return">已鎖定（重整後）</button>
+  <button data-state="expired">驗證碼已失效</button>
 </div>
 
 <script>
 (function () {
   var CORRECT_OTP = '123456'; // demo 用固定正確碼，方便測試成功路徑
-  var backupField = document.getElementById('backupField');
-  var backupInput = backupField.querySelector('input');
-  var BACKUP_LEN  = 8;
   var errorMsg   = document.getElementById('errorMsg');
   var errorText  = document.getElementById('errorText');
   var resendRow  = document.getElementById('resendRow');
   var submitBtn  = document.getElementById('submitBtn');
   var submitLbl  = document.getElementById('submitLabel');
-  var cardTitle  = document.getElementById('cardTitle');
-  var cardSubSms    = document.getElementById('cardSubSms');
-  var cardSubBackup = document.getElementById('cardSubBackup');
-  var backupLink   = document.getElementById('backupLink');
-  var backupPrefix = document.getElementById('backupPrefix');
   var formPane   = document.getElementById('formPane');
-  var paneOtpTimeout = document.getElementById('paneOtpTimeout');
 
-  var mode = 'sms';              // sms | backup
-  var MAX_BACKUP_ATTEMPTS = 5;   // 備用碼獨立計次；跟 OTP 輸入次數是兩回事，共用同一個視覺 errorMsg
-  var backupAttemptsLeft = MAX_BACKUP_ATTEMPTS;
-
-  /* ---------- 簡訊 OTP：六格輸入／輸錯鎖定／重發三態／逾時，改用共用模組
+  /* ---------- 簡訊 OTP：六格輸入／輸錯鎖定／重發兩態／碼過期，改用共用模組
      （otp-shared.js）——跟找回帳密頁、2FA 綁定引導頁同一套邏輯，不再自己寫一份。
-     autoBindVerifyClick:false 是因為這頁的送出按鈕要依模式（sms/backup）分流，
-     由下面自己接管 click 事件 ---------- */
-  var otp = initOtpVerifier({
+     2026-08-05：備用碼移除後這頁只剩簡訊一種模式，送出按鈕交回共用模組
+     自動綁定（原本的 autoBindVerifyClick:false 是為了 sms/backup 分流才需要） */
+  var otp;
+  // 驗證代碼四選一：正解由 otp-shared.js 的 CORRECT_TX_CODE 決定（demo 固定 ABC，
+  // 跟六位數固定 123456 同一個道理）。選了碼要回頭叫 otp.recheck()，
+  // 否則「先填滿六格、後選代碼」這個順序不會自動送出
+  var codeChoice = initCodeChoice({
+    row: document.getElementById('codeChoiceRow'),
+    // 選完代碼把游標接到還沒填的那一格：點按鈕會把焦點吃掉，不接的話使用者還要自己再點一次
+    onChange: function () { if (otp) { otp.recheck(); otp.focusNextEmpty(); } }
+  });
+
+  otp = initOtpVerifier({
     otpRow: document.getElementById('otpRow'),
     verifyBtn: submitBtn,
     verifyLabelEl: submitLbl,
@@ -231,14 +265,54 @@
     errorTextEl: errorText,
     resendRow: resendRow,
     validityEl: document.getElementById('validitySec'),
-    maxAttempts: 5,          // 與帳密錯誤鎖定策略一致
-    maxResends: 3,
-    autoBindVerifyClick: false,
+    validityWrap: document.getElementById('validityWrap'),
+    codeChoice: codeChoice,
+    // 2026-08-06：次數不再逐頁傳，統一由 otp-shared.js 的 OTP_MAX_ATTEMPTS 供給（3 次）
     checkCode: function (code) { return code === CORRECT_OTP; },
-    timeoutMs: 3 * 60 * 1000,   // 3 分鐘，跟交易代碼那行的「有效時間 180 秒」一致
+    // 2026-08-06：有效時間不再逐頁傳，統一由 otp-shared.js 的 OTP_VALIDITY_SEC 供給。
+    // 接 SafeSay 後這個秒數很可能要調高（使用者得離開畫面去領碼），改一個地方三頁同步
     onSuccess: showSuccess,
-    onTimeout: showOtpTimeout
+    // 鎖定時「信任這個裝置」也要一起停用——這頁被鎖之後唯一還能做的事
+    // 只有聯絡客服，留一個亮著、勾了也沒用的選項只會誤導
+    onLock:   function () { setTrustDisabled(true); },
+    onUnlock: function () { setTrustDisabled(false); }
   });
+
+  var trustDevice = document.getElementById('trustDevice');
+  var trustInput  = trustDevice.querySelector('input');
+  function setTrustDisabled(on) {
+    trustDevice.classList.toggle('is-disabled', on);
+    trustInput.disabled = on;
+    if (on) trustInput.checked = false;
+  }
+
+  /* ---------- 「已鎖定」進站狀態（2026-08-06）----------
+     使用者輸錯達上限之後**重新整理再回到這一頁**會看到的畫面。
+
+     這跟「當場錯滿第 3 次」不是同一件事：那一刻有抖動動畫、有剛扣掉的次數；
+     重整回來則是靜靜地一進站就鎖著，而且**系統沒有再發簡訊**——
+     所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」換成「此帳號的簡訊驗證已鎖定」，
+     引導句整段收起來，重發那行清空（不清的話重整一次就能多送一則簡訊）。
+
+     真實系統靠後端查帳號的鎖定狀態；原型沒有後端，用網址 ?locked=1 模擬。
+     ⚠️ 這也是為什麼鎖定必須綁在帳號上（後端）而不是頁面狀態——
+        現在原型重整就歸零，正式實作照著做的話等於沒鎖。 */
+  var validityWrap = document.getElementById('validityWrap');
+  var guideLine    = document.getElementById('guideLine');
+  function showLockedOnLoad() {
+    otp.lock();
+    validityWrap.classList.add('is-locked');
+    guideLine.style.display = 'none';
+    /* 下方那條紅色錯誤訊息要收掉——說明句已經把「錯太多次、鎖了、怎麼辦」
+       三件事一次講完，留著等於同一件事講兩次，而且一張卡片出現兩段紅字太重。
+       （當場錯滿那一刻不一樣：那時說明句還是「已發送簡訊至…」，
+        錯誤訊息是唯一在講鎖定的地方，必須留著） */
+    errorMsg.classList.remove('show', 'error');
+  }
+  function clearLockedOnLoad() {
+    validityWrap.classList.remove('is-locked');
+    guideLine.style.display = '';
+  }
 
   function showSuccess() {
     // 2026-07-31：拿掉「登入成功」中繼頁。登入是進門，不是任務完成，
@@ -247,131 +321,10 @@
     window.location.href = 'https://alvieforwork.github.io/e8d-nav-prototype/';
   }
 
-  function showOtpTimeout() {
-    otp.stopTimeout();
-    otp.stopResendTimer();
-    formPane.classList.remove('show');
-    paneOtpTimeout.classList.add('show');
-    // stepper 這頁沒有，逾時單純換成獨立畫面，不影響其他狀態
-  }
-
-  document.getElementById('otpTimeoutBtn').addEventListener('click', function () {
-    paneOtpTimeout.classList.remove('show');
-    formPane.classList.add('show');
-    if (mode === 'backup') setMode('sms');   // 逾時重新開始一律回到簡訊驗證
-    else { otp.reset(); otp.startCountdown(56); }
-  });
-
-  /* ---------- 備用碼模式：這頁獨有，不進共用模組 ----------
-     正確答案來自 2FA 綁定引導頁（步驟③）產生的那 10 組，透過 localStorage 傳過來，
-     所以「先跑一次首次登入設定、把備用碼複製下來，再回登入頁改用備用碼」這條路
-     是真的能走通的，連「每組只能用一次」也會實際生效（用過即從清單移除）。
-     若沒跑過綁定流程（localStorage 是空的），退回原本行為：一律判錯。 */
-  function loadBackupCodes() {
-    try { return JSON.parse(localStorage.getItem('e8d-backup-codes')) || []; }
-    catch (e) { return []; }
-  }
-  function consumeBackupCode(code) {
-    var list = loadBackupCodes();
-    var i = list.indexOf(code.toLowerCase());   // 產生時是小寫，比對前統一
-    if (i === -1) return false;
-    list.splice(i, 1);                          // 每組只能用一次
-    try { localStorage.setItem('e8d-backup-codes', JSON.stringify(list)); } catch (e) {}
-    return true;
-  }
-
-  backupInput.addEventListener('input', function () {
-    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, BACKUP_LEN);
-    clearBackupError();
-    submitBtn.disabled = this.value.length !== BACKUP_LEN;
-    if (this.value.length === BACKUP_LEN) verifyBackup();
-  });
-
-  function clearBackupError() {
-    backupField.classList.remove('is-error');
-    errorMsg.classList.remove('show', 'error');
-  }
-
-  function verifyBackup() {
-    backupField.classList.add('is-loading');
-    submitBtn.disabled = true;
-    submitLbl.innerHTML = '<span class="spinner"></span>驗證中';
-    setTimeout(function () {
-      backupField.classList.remove('is-loading');
-      submitLbl.textContent = '驗證';
-      if (consumeBackupCode(backupInput.value)) showSuccess();
-      else showBackupError();
-    }, 1200);
-  }
-
-  function showBackupError() {
-    backupAttemptsLeft = Math.max(0, backupAttemptsLeft - 1);
-    backupField.classList.remove('is-error');
-    void backupField.offsetWidth;   // 重新觸發抖動動畫
-    backupField.classList.add('is-error');
-    errorMsg.classList.add('show', 'error');
-
-    if (backupAttemptsLeft > 0) {
-      errorText.innerHTML = '備用碼錯誤，還可以再嘗試 <b>' + backupAttemptsLeft + '</b> 次';
-      submitBtn.disabled = backupInput.value.length !== BACKUP_LEN;
-      backupInput.focus();
-    } else {
-      errorText.innerHTML = '錯誤次數過多，請於 <b>30 分鐘</b>後再試';
-      backupInput.disabled = true;
-      submitBtn.disabled = true;
-    }
-  }
-
-  function resetBackup() {
-    backupAttemptsLeft = MAX_BACKUP_ATTEMPTS;
-    backupInput.value = '';
-    backupInput.disabled = false;
-    clearBackupError();
-    submitBtn.disabled = true;
-    submitLbl.textContent = '驗證';
-  }
-
-  function setMode(next) {
-    mode = next;
-    if (mode === 'backup') {
-      cardTitle.textContent = '輸入備用碼';
-      cardSubSms.style.display = 'none';
-      cardSubBackup.style.display = '';
-      resendRow.innerHTML = '';
-      resendRow.style.display = 'none';
-      otp.stopResendTimer();
-      backupPrefix.textContent = '手機可以收簡訊了？';
-      backupLink.textContent = '返回簡訊驗證';
-      document.getElementById('otpRow').style.display = 'none';
-      backupField.classList.add('show');
-      resetBackup();
-      backupInput.focus();
-    } else {
-      cardTitle.textContent = '簡訊驗證碼';
-      cardSubBackup.style.display = 'none';
-      cardSubSms.style.display = '';
-      backupPrefix.textContent = '收不到簡訊？';
-      backupLink.textContent = '改用備用碼';
-      resendRow.style.display = '';
-      document.getElementById('otpRow').style.display = '';
-      backupField.classList.remove('show');
-      otp.reset();
-      otp.startCountdown(56);
-    }
-  }
-
-  backupLink.addEventListener('click', function (e) {
-    e.preventDefault();
-    setMode(mode === 'sms' ? 'backup' : 'sms');
-    syncStateBar(mode === 'backup' ? 'backup' : 'counting');
-  });
-
-  /* 送出按鈕依模式分流：簡訊模式交給共用模組驗證，備用碼模式走自己的邏輯 */
-  submitBtn.addEventListener('click', function () {
-    if (submitBtn.disabled) return;
-    if (mode === 'backup') verifyBackup();
-    else otp.verify();
-  });
+  /* 2026-08-05：備用碼模式整段移除（輸入框、獨立的 5 次計數、跟綁定引導頁
+     用 localStorage 對答案的那套、sms/backup 雙模式的 setMode()）。
+     送出按鈕不再需要依模式分流，改回交給共用模組自動綁定
+     ——見上面 initOtpVerifier() 已拿掉的 autoBindVerifyClick:false。 */
 
   /* ---------- demo 狀態切換 ---------- */
   var stateButtons = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
@@ -386,25 +339,26 @@
     btn.addEventListener('click', function () {
       var s = this.dataset.state;
       syncStateBar(s);
+      // 先把「已鎖定進站」的說明句還原，否則切到別的狀態時那句話會殘留
+      clearLockedOnLoad();
 
-      if (s === 'timeout') { showOtpTimeout(); return; }
-
-      paneOtpTimeout.classList.remove('show');
-      formPane.classList.add('show');
-
-      if (s === 'daily') {
-        // 簡訊「發送」次數上限——跟 OTP「輸入」次數上限是兩件事，
-        // 不動 otpRow／errorMsg，只有 resendRow 這個狀態區塊換掉
-        if (mode === 'backup') setMode('sms');
+      // 鎖定後重新整理再進來：一進站就鎖著、沒有再發簡訊，說明句與引導句都要換
+      if (s === 'locked-return') {
         otp.reset();
         otp.stopResendTimer();
-        otp.setResendCount(3);
-        otp.renderResendRow('limited');
+        showLockedOnLoad();
+        bindSupportLinks();   // 鎖定訊息裡的行內連結是這時才生出來的
         return;
       }
 
-      if (s === 'backup') { setMode('backup'); return; }
-      if (mode === 'backup') setMode('sms');
+      // 2026-08-05：碼過期不再跳獨立頁，就地把說明句換成「驗證碼已失效」
+      // 並讓重發變可按；輸入框刻意不鎖，使用者仍可打（只是一定驗不過）
+      if (s === 'expired') {
+        otp.reset();
+        otp.stopResendTimer();
+        otp.expire();
+        return;
+      }
 
       if (s === 'default') {
         otp.reset();
@@ -433,6 +387,21 @@
 
   document.getElementById('backLink').setAttribute('href', 'F1登入頁-提案.html');
 
+  /* 客服連結：原型沒有實際去處，先擋掉預設跳轉。
+     2026-08-06 起這頁只剩一個入口——鎖定訊息裡的 .js-support，
+     是 JS 動態插入 innerHTML 產生的節點，所以每次進鎖定狀態都要重掃一次 */
+  function bindSupportLinks() {
+    document.querySelectorAll('.js-support').forEach(function (a) {
+      if (a.dataset.bound) return;
+      a.dataset.bound = '1';
+      a.addEventListener('click', function (e) { e.preventDefault(); });
+    });
+  }
+  bindSupportLinks();
+
+  // 「信任這個裝置」的天數由設定值填入，HTML 裡的 30 只是佔位
+  document.getElementById('trustDays').textContent = TRUST_DEVICE_DAYS;
+
   // 起始狀態
   // 2026-08-04 修正：這裡原本沒呼叫 otp.reset()，導致 initOtpVerifier 裡
   // 「有效時間」的計時器（依賴 reset() 才會啟動）在真實進入頁面時從沒開始跑，
@@ -440,6 +409,10 @@
   otp.reset();
   otp.startCountdown(56);
   otp.focus();
+
+  // ?locked=1：模擬「驗證碼已鎖定的帳號重新整理再進來」。
+  // 真實系統是後端查帳號狀態，這裡只是讓 PM 看得到那個畫面
+  if (/[?&]locked=1/.test(location.search)) { showLockedOnLoad(); bindSupportLinks(); }
 })();
 </script>
 

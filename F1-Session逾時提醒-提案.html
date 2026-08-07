@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>F1 Session 逾時提醒 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
 <style>
   /* 這個 Modal 是全站共用元件，不屬於單一頁面，背景不是登入前版型。
      背景改用 iframe 直接載入已上線的「E8D 後台導覽結構原型」
@@ -69,7 +69,11 @@
 <div class="modal-mask show" id="modalMask">
   <div class="modal">
     <div class="modal-head"><div class="modal-title">即將登出</div></div>
-    <div class="modal-body">您已閒置一段時間，為了保護帳號安全，系統即將自動登出。</div>
+    <!-- 2026-08-06：「閒置一段時間」改成講明時長。
+         模糊講法會讓使用者不知道自己觸發了什麼規則、下次要多久才會再遇到；
+         講明「1 小時」他才能判斷這是正常機制還是出了問題。
+         數字由下方 SESSION_TIMEOUT_MIN 填入，畫面不寫死 -->
+    <div class="modal-body">您已閒置 <b id="idleSpan">1 小時</b>，為了保護帳號安全，系統即將自動登出。</div>
     <div class="modal-foot">
       <button class="m-btn m-btn-secondary" id="logoutBtn">登出</button>
       <button class="m-btn m-btn-primary" id="stayBtn">繼續使用</button>
@@ -83,6 +87,20 @@
 </div>
 
 <script>
+  /* ===== 可調整設定（2026-08-06）=====
+     SESSION_TIMEOUT_MIN — 閒置多久跳出「即將登出」提醒，預設 60 分鐘。
+     ⚠️ 這是 config 值不是寫死的規則，主管要調就改這一個數字，
+        modal 上那句話會跟著變（60 → 顯示「1 小時」、90 → 顯示「90 分鐘」）。
+     ⚠️ modal 出現後多久真的登出，Alvie 已定案**不做倒數秒數**——
+        看著秒數跳只會製造壓迫感，使用者要的是「還能不能繼續用」。 */
+  var SESSION_TIMEOUT_MIN = 60;
+
+  // 60 的整數倍講「小時」比較好讀，其餘照分鐘講
+  function idleText(min) {
+    return (min >= 60 && min % 60 === 0) ? (min / 60) + ' 小時' : min + ' 分鐘';
+  }
+  document.getElementById('idleSpan').textContent = idleText(SESSION_TIMEOUT_MIN);
+
   var mask = document.getElementById('modalMask');
   document.getElementById('reopenBtn').addEventListener('click', function () {
     mask.classList.add('show');

@@ -127,7 +127,7 @@
   /* ---------- 版型尺寸 ---------- */
   --visual-panel-width: 44%;   /* 左側視覺區佔比 */
   --card-width:         400px; /* 標準卡片：單欄表單 */
-  --card-width-wide:    520px; /* 寬版卡片：需要兩欄或大量內容（如備用碼）*/
+  --card-width-wide:    520px; /* 寬版卡片：需要兩欄或大量內容 */
   --field-height:       56px;  /* 輸入欄位 */
   --btn-height:         48px;  /* 主按鈕 */
   --btn-height-sm:      44px;  /* 次要按鈕 */
@@ -318,6 +318,49 @@ body {
 .field-float.is-error input:focus { box-shadow: var(--error-ring); }
 .field-float.is-disabled { opacity: .55; pointer-events: none; }
 
+/* ============================================================
+   國家選單 ＋ 國碼（唯讀）：目前只有忘記密碼頁使用
+   左：可下拉的國家選單／右：國碼唯讀顯示，並排同一列
+   ============================================================ */
+.phone-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
+
+.country-select {
+  flex: 1; min-width: 0;
+  height: var(--field-height);
+  padding: 0 var(--space-md);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-field);
+  outline: none;
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  /* 下拉箭頭：沿用 Modal 元件既有的同款 chevron，色碼是 --text-secondary 的固定值
+     （data URI 沒辦法讀 CSS 變數，這裡改了 --text-secondary 記得手動同步） */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2379706A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  transition: box-shadow .12s ease, border-color .12s ease;
+}
+.country-select:focus { border-color: var(--border-focus); box-shadow: var(--focus-ring); }
+
+/* 國碼是自動帶出的唯讀顯示，不是輸入框——底色用中性灰跟 .info-box 同一套邏輯，
+   橘色留給主按鈕當唯一焦點 */
+.dial-code {
+  flex-shrink: 0; width: 76px;
+  height: var(--field-height);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-body); font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  background: var(--neutral-50);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-field);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 密碼顯示切換 */
 .eye-toggle {
   position: absolute;
@@ -336,7 +379,7 @@ body {
    ------------------------------------------------------------
    使用者輸入時即時打勾，不要等送出才退件。
    達成用 success 綠勾＋文字轉深色，未達成是空心圈＋灰字。
-   2026-07-31 從忘記密碼頁搬進來（強制變更密碼頁也要用）
+   2026-07-31 從忘記密碼頁搬進來（首次登入的設定密碼那步也要用）
    ============================================================ */
 .rules {
   list-style: none; padding: 0;
@@ -431,6 +474,103 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
+   Cloudflare Turnstile —— ⚠️ 這是「示意佔位」，不是真的 widget
+   ------------------------------------------------------------
+   2026-08-05：用來取代自製圖形驗證碼的提案原型。實際上線時這一塊會由
+   Cloudflare 的 script 產生，我們**完全無法控制它的外觀**（只能選
+   theme: auto / light / dark）。
+
+   ⚠️ 底下的色碼、圓角、字級都是**刻意寫死、刻意不用我們的 token** ——
+   它們是 Cloudflare 的規格不是 E8D 的設計語言。如果拿我們的 token 去畫，
+   PM 會以為上線後長這樣，但實際不會。這是唯一該破例硬填值的地方。
+
+   尺寸依官方文件的 flexible：寬 100%（最小 300px）× 高 65px。
+   我們卡片內容寬 352px（400 − 24×2 內距），在最小值之上，剛好貼齊。
+   （另兩種官方尺寸：normal 300×65 固定寬、compact 150×140，都不適用）
+
+   ---- 關於「Managed 模式會不會把版面撐高」（2026-08-05 查證）----
+   官方尺寸表明講 65px 是 **Managed 與 Non-Interactive 兩種模式共用**的高度，
+   也就是說 Managed 需要使用者互動時，那個勾選框是**長在同一個 65px 框裡面**
+   （原文：「When an interaction is required, the visitor will be prompted to
+   select a box」），不是把 widget 撐高。所以下方按鈕不會被往下推。
+
+   ⚠️ 給接手的工程師：這裡刻意用 `height` 而不是 `min-height`，
+   就是要把高度鎖死、預留好互動挑戰需要的空間，讓版面在任何狀態都不跳動。
+   **請不要改成 min-height 或 auto** —— 那樣萬一 Cloudflare 改版讓 widget 變高，
+   登入按鈕就會被推走。真的遇到內容放不下，回頭找設計討論要留多高，不要放生。
+
+   （文件沒有白紙黑字保證「永遠不會變高」，所以還是請在測試環境實跑一次，
+   親眼確認 Managed 要求互動時的樣子——原型裡的 interactive 狀態就是在模擬它。）
+   ============================================================ */
+.turnstile-box {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; height: 65px;   /* 鎖死，見上方說明，不要改成 min-height */
+  padding: 0 12px;
+  margin-bottom: var(--space-md);
+  background: #FAFAFA;
+  border: 1px solid #E5E5E5;
+  border-radius: 4px;          /* Cloudflare 自己的圓角，不是我們的 --radius-field */
+  font-size: 14px; color: #444;
+}
+.turnstile-box .ts-indicator {
+  width: 24px; height: 24px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.turnstile-box .ts-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #D0D0D0; border-top-color: #888;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+.turnstile-box .ts-check { display: none; color: #12862F; }
+.turnstile-box .ts-cross { display: none; color: #C33; }
+
+/* Managed 模式要求互動時出現的勾選框——重點是它就在這個 65px 框內，
+   不會把 widget 撐高、不會推擠下方按鈕。
+
+   使用者要做的動作就只有「點這個框一下」（官方原文：the visitor will be
+   prompted to select a box），點完 widget 自己跑驗證再變成通過。
+   不是選圖片、不是拼圖、不是拖滑桿。 */
+.turnstile-box .ts-checkbox {
+  display: none;
+  width: 22px; height: 22px; padding: 0;
+  border: 1px solid #B4B4B4; border-radius: 3px;
+  background: #fff; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.turnstile-box .ts-checkbox:hover { border-color: #888; background: #F4F4F4; }
+.turnstile-box .ts-checkbox:focus-visible {
+  outline: 2px solid #0051C3; outline-offset: 1px;
+}
+
+.turnstile-box .ts-label { flex: 1; min-width: 0; }
+.turnstile-box .ts-label > span { display: none; }
+
+/* 右側品牌區：真的 widget 這裡是 Cloudflare logo，佔位只放文字示意 */
+.turnstile-box .ts-brand {
+  flex-shrink: 0; text-align: right;
+  font-size: 10px; line-height: 1.35; color: #999;
+}
+.turnstile-box .ts-brand b { display: block; font-size: 11px; color: #666; font-weight: 600; }
+
+/* ---- 四種狀態互斥（高度一律 65px，不隨狀態改變）---- */
+.turnstile-box[data-state="verifying"]   .ts-verifying,
+.turnstile-box[data-state="interactive"] .ts-interactive,
+.turnstile-box[data-state="success"]     .ts-success,
+.turnstile-box[data-state="error"]       .ts-error { display: inline; }
+
+.turnstile-box[data-state="success"]     .ts-spinner,
+.turnstile-box[data-state="error"]       .ts-spinner,
+.turnstile-box[data-state="interactive"] .ts-spinner { display: none; }
+.turnstile-box[data-state="success"]     .ts-check    { display: block; }
+.turnstile-box[data-state="error"]       .ts-cross    { display: block; }
+.turnstile-box[data-state="interactive"] .ts-checkbox { display: block; }
+
+.turnstile-box[data-state="error"] { border-color: #E0B4B4; background: #FDF7F7; }
+
+@media (prefers-reduced-motion: reduce) { .turnstile-box .ts-spinner { animation: none; } }
+
+/* ============================================================
    Stepper
    ------------------------------------------------------------
    只用兩種顏色：主色橘（當前＋已完成）＋ 中性米灰（未進行）。
@@ -506,6 +646,60 @@ body {
 .callout-info svg { color: var(--icon-info); }
 
 /* ============================================================
+   驗證代碼四選一（2026-08-05）
+   ------------------------------------------------------------
+   簡訊裡帶一組三碼英文代碼，畫面給四個候選讓使用者挑出收到的那一個。
+   多這一道是為了證明「那封簡訊真的到了本人手上」——畫面上猜不出來，
+   假冒的網站也複製不走，因為它沒有那封簡訊。
+
+   ⚠️ 設計系統缺口：這種「單選卡片」Figma 元件庫還沒有
+   （Button 只有 Default / Hover / Pressed / Disabled / Focus，沒有 selected 態），
+   這裡先用既有 token 拼出來，定案後再決定要不要收成正式元件。
+
+   視覺權重刻意壓在六格驗證碼之下：44px 高、17px 字（OTP 是 56px／22px），
+   讓主角維持是驗證碼輸入，選碼是它的前置動作而不是另一個主角。
+   ============================================================ */
+/* 引導句「請選您收到的代碼並輸入驗證碼：」不自成一段，
+   它是說明區的第二行——寫在 .subtitle 裡用 <br> 換行即可，
+   行距、顏色全部跟第一行一樣，不另外加間距（2026-08-05 定案，
+   原本獨立一段夾在說明與選項中間，讀起來像被硬插進去的） */
+/* 下間距用 --space-xl（不是 lg）：選碼與六格驗證碼是**兩件事**，
+   間距要明顯大於各自區塊內部的 8px，否則兩排方塊會讀成同一組控制項 */
+.code-choice-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.code-choice {
+  flex: 1; min-width: 0; height: var(--btn-height-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font);
+  font-size: var(--fs-lead); font-weight: var(--fw-medium);
+  letter-spacing: .08em;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  /* 跟輸入框、按鈕同一個圓角：它也是個可操作控制項，
+     不用 --radius-md（那是 callout／小圖示底的） */
+  border-radius: var(--radius-field);
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.code-choice:hover { border-color: var(--neutral-300); }
+.code-choice:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+/* 選中：橘框＋淺橘底，跟橘色 icon 按鈕的 hover 同一套暖色邏輯，不用中性灰 */
+.code-choice.is-selected {
+  border-color: var(--primary-700);
+  background: var(--bg-brand-hover);
+  color: var(--primary-700);
+  font-weight: var(--fw-semi);
+}
+.code-choice-row.is-error .code-choice { border-color: var(--border-error); }
+.code-choice-row.is-error { animation: shake .4s ease; }
+.code-choice-row.is-loading,
+.code-choice-row.is-disabled { opacity: .5; pointer-events: none; }
+
+/* ============================================================
    驗證碼輸入（6 格）
    ============================================================ */
 .otp-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
@@ -536,12 +730,53 @@ body {
   60% { transform: translateX(-4px); }
   80% { transform: translateX(4px); }
 }
-@media (prefers-reduced-motion: reduce) { .otp-row.is-error { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .otp-row.is-error,
+  .code-choice-row.is-error { animation: none; }
+}
 
-/* OTP 交易代碼／有效時間：不獨立成一個視覺樣式，串進「已發送至 09xx****xxx」
-   同一句、同一行（.subtitle 淺灰），代碼與秒數的值再用 .subtitle b 那組加重
+/* OTP 有效時間：不獨立成一個視覺樣式，串進「已發送至 09xx****xxx」
+   同一句、同一行（.subtitle 淺灰），秒數的值再用 .subtitle b 那組加重
    樣式（跟手機號碼同款），不另外做深淺灰。2026-08-04 三度調整：原本自成一格
-   太重像標題、後來分兩行仍有段落感，最後定案是同一句同一行 */
+   太重像標題、後來分兩行仍有段落感，最後定案是同一句同一行。
+
+   ---- 過期就地提示（2026-08-05）----
+   倒數歸零時，otp-shared.js 只在 .validity 掛上 .is-expired，
+   由這兩條規則把「有效時間 NNN 秒」換成「驗證碼已失效，請重新發送」。
+   替換的是**整句**不是後半段：只換「有效時間 NNN 秒」會變成
+   「驗證碼已發送至…，驗證碼已失效」——前後打架，「驗證碼」還講了兩次。
+   用「兩段互斥顯示」而不是改 innerHTML：#validitySec 那個節點必須一直活著，
+   整段重寫會讓 otp-shared.js 抓到的舊參照失效，倒數就永遠停在 180 不動
+   （2026-08-04 已經踩過一次的坑）。
+   顏色用 warning 不用 error——碼失效只要重發就好，不是死路，
+   對應色彩語意表裡的「逾時」那格。 */
+.validity .expired { display: none; }
+.validity.is-expired .normal { display: none; }
+.validity.is-expired .expired {
+  display: inline;
+  color: var(--text-warning);
+  font-weight: var(--fw-medium);
+}
+
+/* 第三種狀態：驗證已被鎖定（2026-08-06）。
+   使用者輸錯達上限之後**重新整理再進來**會看到這個——這時系統根本沒有再發簡訊，
+   所以「已發送簡訊至…，有效時間 NNN 秒」整句都不成立，必須換掉；
+   下方「請點簡訊連結取得…」的引導句也要一起收起來（沒有碼可以取）。
+
+   用 error 色而不是 expired 的 warning 色：碼過期是「再拿一組就好」（黃），
+   鎖定是「今天到此為止」（紅）——紅黃之分照設計規範，紅＝已經出事、黃＝再一步就出事。 */
+.validity .locked { display: none; }
+.validity.is-locked .normal,
+.validity.is-locked .expired { display: none; }
+.validity.is-locked .locked {
+  display: inline;
+  color: var(--text-error);
+  /* ⚠️ 2026-08-06 拿掉這裡原本的 font-weight:medium——那是整句一起加重，
+     跟句子裡「聯絡客服」連結自己的 font-weight:semi（見 .subtitle .locked a）
+     疊在一起，會讓整行看起來都是粗體，變成「加重了兩次、分不出誰是重點」。
+     只保留連結自己粗體，其餘文字用 .subtitle 的預設字重（regular）即可，
+     整句話裡只有「聯絡客服」該是唯一的強調 */
+}
 
 /* 重新發送：整行（含秒數）統一用比說明文字更淺一階的灰，
    跟上方「有效時間 NNN 秒」那行（.subtitle 淺灰＋深灰加重數字）明顯區隔開
@@ -549,11 +784,142 @@ body {
    借用 --text-disabled 的色值，語意上它是給「停用狀態」用的 token，
    這裡只是借色階不是真的停用，正式收進設計系統時建議另補一個語意正確的
    第三階文字色（例如 --text-tertiary） */
+/* 2026-08-06：下間距曾經收成 8px，是為了貼著當時下面固定接的
+   .support-row（「還是收不到簡訊？聯絡客服」那行）。
+   同一天稍晚 .support-row 整個拿掉了（客服入口收斂成只在鎖定訊息裡），
+   這裡改回原本的 --space-xl（24px）——不然找回帳密頁、首次設定頁
+   的重發行會貼著按鈕太近，那 8px 失去存在的理由。
+   ⚠️ 包在 `.otp-footer` 裡面的 `.resend-row` 不受這裡影響：見下方
+   `.otp-footer` 的說明，那個容器改用 flex+gap 系統，`.otp-footer .resend-row`
+   把這裡的 margin 蓋成 0，間距完全交給 gap 控制 */
 .resend-row {
   display: flex; align-items: center; gap: 6px;
   font-size: var(--fs-caption); color: var(--text-disabled);
   margin-bottom: var(--space-xl); min-height: 20px;
 }
+/* 錯誤達上限時整行會被清空（otp-shared.js 的 showError 把 innerHTML 設成 ''）。
+   min-height 是給「倒數中／可重發」切換時不要上下跳動用的，內容一空就該收掉，
+   否則會多撐出 20px，讓輸入框到主按鈕之間出現一段沒來由的空白（2026-08-05 修）。
+
+   2026-08-06 改成直接 display:none（原本只是把 min-height／margin 歸零，
+   但一個 0 高度的空 flex item 在有 gap 的容器裡還是會多算一份 gap，
+   在「簡訊驗證頁」改用 flex column + gap 統一間距後這個殘留量就會被看見）。
+   display:none 才是真正「不佔位」，各頁不論用 margin 或 gap 控制間距都適用 */
+.resend-row:empty { display: none; }
+
+/* ============================================================
+   OTP 輸入框之後那一段（錯誤提示／重發／[信任裝置]／驗證鈕）
+   ------------------------------------------------------------
+   2026-08-06 先在「日常登入 2FA」頁定案、2026-08-07 收進共用檔套用到
+   三個 OTP 頁（日常登入、首次設定驗證手機、忘記密碼驗證碼）。
+
+   問題：這幾個元件原本各自帶自己的 margin-bottom，但「錯誤提示」錯誤時才顯示、
+   「重發區」鎖定時會被清空——元件消失了，margin 卻還留著，於是「正常可輸入／
+   可重發／驗證錯誤還可再試／已鎖定」四種狀態的按鈕上方間距各長各的（24px 或
+   12px 不等），排在一起看很明顯。
+
+   解法：改用 flex column + gap，元件的間距全部交給 gap 控制，元件自己的
+   margin 一律歸零。gap 只作用在「有算進版面的項目」之間——隱藏的元件
+   （`.msg` 沒有 `.show`、`.resend-row` 空的會被上面那條 `:empty` 規則轉成
+   display:none）完全不佔位，不會多留一份 gap。所有狀態因此是同一套間距的
+   自然增減，不是各自定義；三頁共用同一份規則，不必各自為每個狀態單獨喬。
+
+   用法：把「錯誤提示 → 重發區 → [信任裝置，僅日常登入頁] → 驗證按鈕」
+   包進 `<div class="otp-footer">`，`.msg`／`.resend-row` 用 class 選就好，
+   不用管各頁 id 叫什麼名字 */
+.otp-footer { display: flex; flex-direction: column; gap: var(--space-md); }
+.otp-footer .msg,
+.otp-footer .resend-row { margin: 0; }
+/* 2026-08-07：按鈕正上方單獨加碼到 24px（--space-xl），跟登入頁「記住我」
+   到主按鈕、密碼規則清單（.rules）到「更新密碼」同一個節奏對齊——
+   這個 margin-top 疊加在上面的 gap:12px 上（12+12=24），不是取代它。 */
+.otp-footer .btn { margin-top: var(--space-md); }
+/* 2026-08-07 Alvie 要求試看看：「沒收到簡訊？」→「信任這個裝置」也拉到 24px
+   （只有日常登入 2FA 頁有信任裝置，這條只在那頁生效）。跟按鈕那條同一個
+   做法，margin-top 疊加在 gap:12px 上；重發區跟上面的錯誤提示之間維持 12px
+   沒動——只有「重發區 → 信任裝置」這一段被拉開 */
+.otp-footer .check-line { margin-top: var(--space-md); }
+
+/* ============================================================
+   可勾選的一行（checkbox + 文字），2026-08-06 搬進共用檔
+   ------------------------------------------------------------
+   原本只有登入頁的「記住我」在用，樣式寫在那一頁的 <style> 裡。
+   2FA 驗證頁要加「信任這個裝置」之後變成兩頁共用，依 CLAUDE.md 硬規則
+   搬進 token 檔，不在頁面各自複製一份。
+
+   命名改成 .check-line（語意是「一行可勾選項目」）而不是沿用 .remember
+   ——後者的名字綁死在「記住我」，掛到信任裝置上會讀不通。
+   .remember 保留為別名讓登入頁現有的 HTML 不用動，但**不可再新增使用**。
+   ============================================================ */
+.check-line, .remember {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: var(--fs-caption); color: var(--text-secondary);
+  cursor: pointer; user-select: none;
+}
+.check-line input, .remember input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check-line .box, .remember .box {
+  width: 18px; height: 18px; flex: none;
+  border: 1px solid var(--neutral-300);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s ease, border-color .12s ease;
+}
+.check-line .box svg, .remember .box svg { opacity: 0; color: var(--neutral-white); }
+.check-line input:checked + .box, .remember input:checked + .box {
+  background: var(--primary-700);
+  border-color: var(--primary-700);
+}
+.check-line input:checked + .box svg, .remember input:checked + .box svg { opacity: 1; }
+/* 鍵盤走訪時要看得到焦點——checkbox 本身是隱藏的，焦點環要畫在代打的方框上 */
+.check-line input:focus-visible + .box, .remember input:focus-visible + .box {
+  border-color: var(--primary-700);
+  box-shadow: 0 0 0 3px var(--bg-brand-hover);
+}
+/* 停用（例如 OTP 錯誤達上限後，整張卡片只剩「聯絡客服」可用） */
+.check-line.is-disabled, .remember.is-disabled {
+  opacity: .5; cursor: not-allowed; pointer-events: none;
+}
+
+/* 訊息行內的連結（例如鎖定訊息裡的「聯絡客服」），2026-08-06。
+   ------------------------------------------------------------
+   顏色**繼承所在訊息的顏色**（錯誤訊息裡就是紅的），只靠加粗跟其他字區分——
+   在一句紅字裡再塞一個藍色連結會變成兩個色系打架。
+
+   ⚠️ 客服**不常駐**：只在使用者真的卡住時才出現（收不到簡訊、帳號被鎖），
+      平常不佔版面。這是 2026-08-06 Alvie 定的原則。
+
+   hover 不用底線（同日校正，Alvie 指定）：這些連結多半嵌在一整句警示紅字裡，
+   加底線容易被誤讀成半個表單欄位。
+
+   ⚠️ 2026-08-06 hover 效果改了三次：
+   ① brightness(0.85) 壓暗——暗下去的紅偏濁（豬肝紅）；
+   ② 淡底色 highlight——Alvie 看過覺得不需要那個框；
+   ③ filter: saturate(1.5)——拉彩度不壓暗，方向對了但效果太細微，
+      在已經很飽和的 --text-error 上幾乎看不出差異；
+   ✅ 現在：Alvie 指定固定色碼 #E42C2F 試看看，比 --text-error(#EC2D30)
+   略深一點、彩度也收一點，兩者放在一起比較確認過看起來自然。
+   ⚠️ 這是寫死的色碼，不是從 --text-error 算出來的——目前這個連結只出現在
+   紅色（error）語境，還沒有 warning／success 訊息接連結的實例；
+   真的出現那種情境時，這個固定色碼需要重新評估（它只在紅色底下驗證過）。 */
+.msg a, .form-alert a {
+  color: inherit; font-weight: var(--fw-semi);
+  text-decoration: none; cursor: pointer;
+  transition: color .12s ease;
+}
+.msg a:hover, .form-alert a:hover { color: #E42C2F; }
+
+/* ============================================================
+   聯絡客服的常駐輔助行（.support-row）已在 2026-08-06 同一天整個拿掉。
+   ------------------------------------------------------------
+   沿革：8/5 移除備用碼後，日常登入 2FA 完全沒有人工退路，先做了這個
+   「重發過一次才出現」的輔助連結，三個 OTP 頁都放了。
+   但 Alvie 隨後定案：**客服入口只在「已鎖定」狀態出現**（鎖定紅字裡的
+   粗體「聯絡客服」），未鎖定的任何狀態（正常可輸入／可重發／驗證錯誤還可
+   再試）都不該有第二個客服入口——這個輔助行的存在本身就違反這條規則，
+   三頁都已刪除對應的 HTML／JS。這裡不留 class 定義，避免以後有人
+   看到這段說明又把它加回去。
+   ============================================================ */
 .resend-row .countdown {
   font-variant-numeric: tabular-nums;
 }
@@ -565,10 +931,9 @@ body {
   transition: color .12s ease;
 }
 .resend-btn:hover { color: var(--neutral-600); }
-/* 簡訊發送次數已達上限：整行取代，不與倒數/重發文案並存（2026-07-31）。
-   跟 .msg.error 同一套語意（紅＝已經出事），共用元件其他 OTP 頁一起受惠 */
-.resend-row.is-limit { color: var(--text-error); align-items: flex-start; }
-.resend-row.is-limit svg { flex-shrink: 0; margin-top: 1px; }
+/* 2026-08-05：拿掉 .resend-row.is-limit（今日簡訊次數已達上限）——
+   每日發送上限這條規則取消了，重發只剩「倒數中／可重發」兩態。
+   「輸錯 5 次鎖定」是另一回事，仍在 otp-shared.js 的 showError() 裡。 */
 
 .resend-sent {
   display: inline-flex; align-items: center; gap: 5px;

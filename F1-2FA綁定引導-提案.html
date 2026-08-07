@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 首次登入：2FA 綁定引導 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260804"></script>
+<script src="otp-shared.js?v=20260806s"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -24,99 +24,40 @@
   /* 標題全白，橘色留給右邊的登入按鈕當唯一焦點 */
 
   /* ---------- 右側卡片 ----------
-     2026-07-31：改用共用 .auth-card（寬版用既有的 .is-wide 修飾字，520px 對應
-     --card-width-wide），不再是本頁專屬的 .wizard-card。卡片／h1／subtitle
-     樣式全部改吃 auth-tokens.css，連帶消除「.wizard-card h1 選擇器太寬蓋掉
-     巢狀 .result-hero h1」那個 collision */
+     2026-07-31：改用共用 .auth-card，不再是本頁專屬的 .wizard-card。卡片／h1／
+     subtitle 樣式全部改吃 auth-tokens.css，連帶消除「.wizard-card h1 選擇器太寬
+     蓋掉巢狀 .result-hero h1」那個 collision。
+     2026-08-05：拿掉 .is-wide（520px）改回標準 400px——那個寬度本來只是為了
+     備用碼那頁的兩欄格線，備用碼移除後沒有理由再比其他流程寬 */
 
   /* ---- 內容 ---- */
   .pane { display: none; }
   .pane.show { display: block; }
 
-  /* 密碼欄位併自 F1-強制變更密碼-提案.html，兩欄位貼成一組 */
+  /* 兩個密碼欄位貼成一組 */
   .pw-group { margin-bottom: var(--space-lg); }
   .pw-group .field-float:last-child { margin-bottom: 0; }
 
   /* 提示框 */
 
-  /* 手機號碼顯示 */
-  .phone-box {
-    display: flex; align-items: center; gap: var(--space-md);
-    padding: var(--space-lg);
-    background: var(--neutral-50);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-field);
-    margin-bottom: var(--space-lg);
+  /* 2026-08-05：.phone-box 樣式已移除——號碼併回說明句，卡片不再存在 */
+
+  /* 「已鎖定（重整後）」訊息裡的「聯絡客服」：這頁沒有自己的 .subtitle a 規則，
+     但共用檔 auth-tokens.css 裡有一條 .auth-card .subtitle a{color:var(--text-link)}
+     （給一般藍色連結用），特異度會跟只寫 .subtitle .locked a 的規則打平——
+     要蓋過它就得明確覆寫，樣式與色碼對齊另外兩頁的定案版本 */
+  .subtitle .locked a {
+    color: inherit; font-weight: var(--fw-semi);
+    text-decoration: none; cursor: pointer;
+    transition: color .12s ease;
   }
-  .phone-box .ico {
-    width: 40px; height: 40px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--bg-surface); color: var(--text-brand);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-  }
-  .phone-box .num {
-    font-size: 17px; font-weight: 600;
-    font-variant-numeric: tabular-nums; letter-spacing: .5px;
-  }
-  .phone-box .cap { font-size: 12px; color: var(--text-secondary); }
+  .subtitle .locked a:hover { color: #E42C2F; }
 
   /* 6 格驗證碼 */
 
-  /* ---- 備用碼區（本頁主角，視覺權重最高） ---- */
-  /* 間距節奏：標題組緊、警告獨立、備用碼與保存按鈕成一組，組間才留大距離 */
-  .subtitle.tight { margin-bottom: var(--space-md); }
-
-  .warn-line {
-    display: flex; align-items: flex-start; gap: 6px;
-    margin: 0 0 var(--space-xl);
-    font-size: 13px; line-height: 1.6;
-    color: var(--warning-700);
-  }
-  .warn-line svg { flex-shrink: 0; margin-top: 2px; }
-
-  .codes-group { margin-bottom: var(--space-2xl); }
-
-  .codes-box {
-    background: var(--neutral-50);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg) var(--space-xl);
-    margin-bottom: var(--space-sm);
-  }
-  .codes-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: var(--space-sm) var(--space-xl);
-  }
-  .codes-grid li {
-    font-family: var(--font-mono);
-    font-size: 15px; font-weight: 600; letter-spacing: .5px;
-    color: var(--text-primary);
-    list-style: none;
-  }
-  .codes-grid { padding: 0; margin: 0; }
-
-  /* 兩顆按鈕左右等分、撐滿卡片寬（與下方主按鈕同寬），中間固定 8px */
-  .save-actions {
-    display: flex; gap: var(--space-sm);
-  }
-  .save-actions > .btn-secondary { flex: 1; }
-
-  /* 已保存：按鈕本體維持 Secondary 中性樣式（設計系統的 Button 沒有 success 狀態），
-     只有打勾圖示用 color/icon/success 傳達完成 */
-  .btn-secondary .ico-done { display: none; color: var(--success-600); }
-  .btn-secondary.saved .ico-default { display: none; }
-  .btn-secondary.saved .ico-done { display: block; }
-  .btn-secondary.saved { color: var(--text-secondary); }
-
-  /* ---- 主按鈕 ---- */
-
-  .hint-under-btn {
-    display: flex; align-items: center; justify-content: center; gap: 5px;
-    font-size: 12.5px; color: var(--text-disabled);
-    margin-top: var(--space-md); min-height: 18px;
-    text-align: center;
-  }
+  /* 2026-08-05：備用碼區的樣式全部移除（.subtitle.tight／.warn-line／
+     .codes-*／.save-actions／.btn-secondary.saved／.hint-under-btn）
+     ——那一步整個拿掉之後，這些選擇器已經沒有任何節點在用 */
 
   /* ---- 完成畫面 ---- */
   /* 大量留白 + 置中成功勾 + 簡短文字，讓「大功告成」有呼吸感 */
@@ -151,36 +92,36 @@
   </div>
 
   <div class="form-panel">
-    <div class="auth-card is-wide">
+    <div class="auth-card">
 
-      <!-- 步驟指示器：設定密碼→驗證手機→保存備用碼，三步都在這個檔案裡，
-           2026-07-31：「設定密碼」原本是獨立頁（F1-強制變更密碼-提案.html），
-           但那頁完成後不能回頭看，併進來當 pane①，才能真的用 stepper／demo 狀態列切回去 -->
+      <!-- 2026-08-06 復原：stepper 曾被我以「兩步流程不放 stepper」為由整個移除，
+           但那不是實際定案——正確原則是**所有流程都保留 stepper、統一樣式，
+           不分兩步或三步**。忘記密碼流程（三步）一直保留著，這頁（兩步）
+           當時被誤拿掉，現在補回來。
+
+           結構、class、圓點／連接線／文字樣式跟 F1-忘記密碼-提案.html 的
+           stepper 完全同一套（共用 auth-tokens.css 的 .steps/.step/.step-dot/
+           .step-line/.step-label），只是步數從三步變兩步，不是另開一套元件。
+
+           沿革：這頁原本是三步（設定密碼→驗證手機→保存備用碼），
+           8/5 移除備用碼後縮成兩步，stepper 當時跟著改成兩步文案。 -->
       <div class="steps" id="steps">
         <div class="step current" data-step="1">
           <span class="step-dot">
             <span class="num">1</span>
-            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </span><span class="step-label">設定密碼</span>
         </div>
         <div class="step-line"></div>
         <div class="step" data-step="2">
           <span class="step-dot">
             <span class="num">2</span>
-            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg class="chk" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </span><span class="step-label">驗證手機</span>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" data-step="3">
-          <span class="step-dot">
-            <span class="num">3</span>
-            <svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </span><span class="step-label">保存備用碼</span>
         </div>
       </div>
 
-      <!-- 步驟①：設定密碼（併自 F1-強制變更密碼-提案.html 的「首次登入」情境；
-           那個檔案繼續保留給「密碼過期」情境單獨使用，兩者不是同一件事） -->
+      <!-- 步驟①：設定密碼（2026-08-05 起這是設定密碼的唯一畫面） -->
       <div class="pane show" data-pane="1">
         <h1>設定您的密碼</h1>
         <p class="subtitle">這是您第一次登入，請設定一組專屬密碼後開始使用。</p>
@@ -255,26 +196,31 @@
       </div>
 
       <!-- 步驟②：驗證手機（原本前面還有獨立的「認識雙重驗證」說明頁，
-           2026-07-31 拿掉——首次登入的完整 stepper 已經是「設定密碼→驗證手機→
-           保存備用碼」三步，不需要額外一頁純講道理；原本兩條說明濃縮成一句話併到這裡） -->
+           2026-07-31 拿掉——stepper 本身已經說明了流程，不需要額外一頁純講道理；
+           原本兩條說明濃縮成一句話併到這裡） -->
       <div class="pane" data-pane="2">
-        <h1>驗證您的手機號碼</h1>
+        <!-- 2026-08-06：三個 OTP 頁標題統一成「簡訊驗證」（完整理由寫在
+             F1-2FA驗證頁-提案.html 的同一處註解）。原本這裡是「驗證您的手機號碼」，
+             「這一步在綁手機」這個資訊由上方 stepper 的「驗證手機」負責，沒有丟失 -->
+        <h1>簡訊驗證</h1>
         <!-- 2026-08-04 四度調整：這頁進來時簡訊已經自動發送、畫面已在倒數，
              原本「請確認號碼正確」是發送前語氣，跟已經在跑的倒數矛盾，改成
-             「已發送」語氣；交易代碼／有效時間併進同一句，不再獨立一行 -->
-        <p class="subtitle">驗證碼已發送至您綁定的手機，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒。</p>
+             「已發送」語氣；有效時間併進同一句，不再獨立一行。
+             2026-08-05：交易代碼從這句拿掉——代碼改成四選一之後，
+             顯示在這裡等於把答案寫在題目旁邊 -->
+        <!-- 2026-08-05：手機號碼併回說明句，原本的 .phone-box 卡片移除。
+             它跟說明句講的是同一件事（「驗證碼已發送至此號碼」vs「已發送至您綁定的手機」），
+             一頁講兩次；而且它夾在說明與選碼之間，引導句就沒辦法貼著選項。
+             併回來之後三頁的說明句格式完全一致，號碼資訊也沒有少 -->
+        <!-- 2026-08-06 接 SafeSay：簡訊只帶連結，碼要去 SafeSay 讀取，
+             故補上受詞「已發送簡訊」＋補上「點簡訊中的連結」這一步。
+             ⚠️ 180 只是佔位，實際值由 otp-shared.js 的 OTP_VALIDITY_SEC 填入 -->
+        <!-- 引導句包進 #guideLine：鎖定狀態要整段收起來，跟另外兩頁同做法 -->
+        <p class="subtitle"><span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span></p>
 
-        <div class="phone-box">
-          <span class="ico">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>
-            </svg>
-          </span>
-          <span>
-            <span class="num">0912 ***347</span><br>
-            <span class="cap">驗證碼已發送至此號碼</span>
-          </span>
-        </div>
+        <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
+             選項由 otp-shared.js 的 initCodeChoice() 產生並每次洗牌，三頁共用同一份 -->
+        <div class="code-choice-row" id="codeChoiceRow" role="radiogroup" aria-label="驗證代碼"></div>
 
         <div class="otp-row" id="otpRow">
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 1 碼">
@@ -285,85 +231,40 @@
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 6 碼">
         </div>
 
-        <!-- OTP 輸入錯誤／連續輸錯鎖定：跟找回帳密頁同一套 .msg 元件 -->
-        <div class="msg" id="otpErrorMsg">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-          </svg>
-          <span id="otpErrorText"></span>
-        </div>
+        <!-- 2026-08-07：錯誤提示／重發／驗證鈕統一收進 .otp-footer（flex+gap
+             系統，定義在 auth-tokens.css），按鈕上方間距才不會因為哪個元件
+             有沒有顯示而時大時小——跟另外兩個 OTP 頁同一套規則 -->
+        <div class="otp-footer">
 
-        <div class="resend-row" id="resendRow"></div>
-
-        <button class="btn btn-primary" id="verifyBtn" disabled><span id="verifyLabel">驗證並繼續</span></button>
-
-        <!-- 綁定號碼收不到簡訊的退路：這裡的號碼唯讀不可改，備用碼這時候也還沒產生，
-             只能導向人工客服，不是自助解法（2026-07-31 新增） -->
-        <div class="footer-divider"></div>
-        <p class="footer-links">
-          <span>手機號碼收不到簡訊？</span><a href="#" id="contactSupportLink">聯絡客服協助</a>
-        </p>
-      </div>
-
-      <!-- 驗證已逾時：獨立畫面，不算完成任何步驟，stepper 停在步驟②（不推進） -->
-      <div class="pane" data-pane="timeout" id="paneOtpTimeout">
-        <div class="result-hero warn">
-          <div class="circle">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+          <!-- OTP 輸入錯誤／連續輸錯鎖定：跟找回帳密頁同一套 .msg 元件 -->
+          <div class="msg" id="otpErrorMsg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
+            <span id="otpErrorText"></span>
           </div>
-          <h1>驗證已逾時</h1>
-          <p>為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。</p>
+
+          <div class="resend-row" id="resendRow"></div>
+
+          <!-- 2026-08-06 再次校正：「還是收不到簡訊？聯絡客服」整行拿掉。
+               Alvie 定的規則：客服入口只在「已鎖定」狀態出現（鎖定紅字裡的
+               粗體「聯絡客服」），只要還沒鎖定、使用者還能重新發送簡訊
+               （正常可輸入／可重發／驗證錯誤還可再試），都不該有第二個客服入口，
+               三個 OTP 頁一致——這頁跟找回帳密頁先前漏改，只改了日常登入 2FA 頁。 -->
+
+          <button class="btn btn-primary" id="verifyBtn" disabled><span id="verifyLabel">驗證並繼續</span></button>
         </div>
-        <button class="btn btn-primary" id="otpTimeoutBtn" style="margin-top:var(--space-lg)"><span>重新開始</span></button>
       </div>
 
-      <!-- 步驟 3：備用碼 -->
+      <!-- 2026-08-05：移除「驗證已逾時」獨立畫面。碼過期改成就地提示
+           （說明句換成「驗證碼已失效，請重新發送」＋重發鈕變可按），
+           首次登入流程尤其不該把人踢出步驟②——他前面才剛設完密碼 -->
+
+      <!-- 2026-08-05：原「步驟 3：保存備用碼」整段移除（10 組碼、下載／複製、
+           「我已保存，完成設定」按鈕）。驗證手機通過後直接進完成畫面 -->
+
+      <!-- 完成（不是 stepper 的一步，是流程終點的結果畫面） -->
       <div class="pane" data-pane="3">
-        <h1>保存您的備用碼</h1>
-        <p class="subtitle tight">收不到簡訊時，可用這些備用碼登入。每組只能使用一次。</p>
-
-        <p class="warn-line">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
-            <path d="M12 9v4"/><path d="M12 17h.01"/>
-          </svg>
-          離開此頁後就無法再查看，請先保存。
-        </p>
-
-        <div class="codes-group">
-          <div class="codes-box">
-            <ul class="codes-grid" id="codesGrid"></ul>
-          </div>
-
-          <div class="save-actions">
-            <button class="btn-secondary" data-save="download">
-              <svg class="ico-default" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
-              </svg>
-              <svg class="ico-done" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              <span>下載</span>
-            </button>
-            <button class="btn-secondary" data-save="copy">
-              <svg class="ico-default" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-              </svg>
-              <svg class="ico-done" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              <span>複製</span>
-            </button>
-          </div>
-        </div>
-
-        <button class="btn btn-primary" id="finishBtn" disabled><span>我已保存，完成設定</span></button>
-      </div>
-
-      <!-- 完成 -->
-      <div class="pane" data-pane="4">
         <div class="result-hero">
           <div class="circle">
             <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -373,13 +274,6 @@
           <h1>雙重驗證已啟用</h1>
           <p>您的帳號現在受到雙重驗證保護。登入時我們會發送簡訊驗證碼，確認是您本人操作。</p>
         </div>
-
-        <p class="result-note">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
-          </svg>
-          備用碼可日後到「帳號安全設定」管理
-        </p>
 
         <button class="btn btn-primary" id="enterPlatformBtn"><span>進入平台</span></button>
       </div>
@@ -392,8 +286,7 @@
   <span class="tag">步驟</span>
   <button data-jump="1" class="active">設定密碼</button>
   <button data-jump="2">驗證手機</button>
-  <button data-jump="3">備用碼</button>
-  <button data-jump="4">完成</button>
+  <button data-jump="3">完成</button>
   <span class="sep"></span>
   <span class="tag">① 狀態</span>
   <button data-pw-state="mismatch">密碼不一致</button>
@@ -401,8 +294,10 @@
   <span class="tag">② 狀態</span>
   <button data-otp-state="error">驗證失敗</button>
   <button data-otp-state="locked">錯誤達上限</button>
-  <button data-otp-state="daily">簡訊已達上限</button>
-  <button data-otp-state="timeout">驗證已逾時</button>
+  <!-- 「錯誤達上限」是當場錯滿那一刻；這顆是隔天／重整後再進來看到的樣子，兩者畫面不同
+       （跟另外兩頁的 locked-return 狀態同一個道理） -->
+  <button data-otp-state="locked-return">已鎖定（重整後）</button>
+  <button data-otp-state="expired">驗證碼已失效</button>
 </div>
 
 <script>
@@ -423,8 +318,8 @@
     });
     lines.forEach(function (l, k) { l.classList.toggle('done', k + 1 < n); });
 
-    // 完成畫面把三個步驟都標成已完成
-    if (n === 4) {
+    // 完成畫面（pane 3）把兩個步驟都標成已完成——它本身不是 stepper 的一步
+    if (n === 3) {
       steps.forEach(function (s) { s.classList.remove('current'); s.classList.add('done'); });
       lines.forEach(function (l) { l.classList.add('done'); });
     }
@@ -432,8 +327,7 @@
     jumpBtn.forEach(function (b) { b.classList.toggle('active', b.dataset.jump === String(n)); });
 
     if (n === 1) { resetPwPane(); }
-    if (n === 2) { otp.reset(); otp.startCountdown(56); }
-    if (n === 3) { renderCodes(); resetSave(); }
+    if (n === 2) { clearLockedOnLoad(); otp.reset(); otp.startCountdown(56); }
   }
 
   document.getElementById('enterPlatformBtn').addEventListener('click', function () {
@@ -445,8 +339,8 @@
   });
 
   /* ---------- 步驟①：設定密碼 ----------
-     邏輯併自 F1-強制變更密碼-提案.html 的「首次登入」情境（規則檢核、
-     顯示/隱藏密碼、送出驗證），簡化成單一情境，不需要那頁的 SCENES 分流 */
+     規則檢核、顯示/隱藏密碼、送出驗證。只有「首次登入」單一情境，
+     不需要早期那套 first／expired 的 SCENES 分流（密碼過期已不存在） */
   var pw        = document.getElementById('pw');
   var pw2       = document.getElementById('pw2');
   var pwField   = document.getElementById('pwField');
@@ -528,11 +422,18 @@
   }
 
   /* ---------- 步驟 2：6 格驗證碼 ----------
-     輸入行為／輸錯鎖定／重發三態／逾時，改用共用模組（otp-shared.js），
+     輸入行為／輸錯鎖定／重發兩態／碼過期，改用共用模組（otp-shared.js），
      跟找回帳密頁、2FA 簡訊驗證頁同一套邏輯，不再各自維護一份 */
-  var paneOtpTimeout = document.getElementById('paneOtpTimeout');
+  var otp;
+  // 驗證代碼四選一：正解由 otp-shared.js 的 CORRECT_TX_CODE 決定（demo 固定 ABC）。
+  // 選完代碼要回頭叫 recheck()，否則「先填滿六格、後選代碼」不會自動送出；
+  // 順手把游標接到第一格，省使用者再點一次輸入框
+  var codeChoice = initCodeChoice({
+    row: document.getElementById('codeChoiceRow'),
+    onChange: function () { if (otp) { otp.recheck(); otp.focusNextEmpty(); } }
+  });
 
-  var otp = initOtpVerifier({
+  otp = initOtpVerifier({
     otpRow: document.getElementById('otpRow'),
     verifyBtn: document.getElementById('verifyBtn'),
     verifyLabelEl: document.getElementById('verifyLabel'),
@@ -540,30 +441,46 @@
     errorTextEl: document.getElementById('otpErrorText'),
     resendRow: document.getElementById('resendRow'),
     validityEl: document.getElementById('validitySec'),
-    maxAttempts: 5,   // 與帳密錯誤鎖定策略一致
-    maxResends: 3,
-    timeoutMs: 3 * 60 * 1000,   // 3 分鐘，跟交易代碼那行的「有效時間 180 秒」一致
+    validityWrap: document.getElementById('validityWrap'),
+    codeChoice: codeChoice,
+    // 2026-08-06：次數不再逐頁傳，統一由 otp-shared.js 的 OTP_MAX_ATTEMPTS 供給（3 次）
+    // 2026-08-06：有效時間不再逐頁傳，統一由 otp-shared.js 的 OTP_VALIDITY_SEC 供給
     // demo 固定測試碼，三個 OTP 入口統一同一組；輸錯會走既有的遞減與鎖定
     checkCode: function (code) { return code === '123456'; },
-    onSuccess: function () { goTo(3); },
-    onTimeout: function () { showOtpTimeout(); }
+    // 2026-08-05：備用碼那一步移除後，驗證手機通過就是流程終點，直接進完成畫面
+    onSuccess: function () { goTo(3); }
   });
 
-  function showOtpTimeout() {
-    otp.stopTimeout();
-    panes.forEach(function (p) { p.classList.remove('show'); });
-    paneOtpTimeout.classList.add('show');
-    // stepper 停在步驟②（不推進）：逾時是「還在這一步」，不是完成或阻斷
+  // 客服連結（鎖定訊息裡由 otp-shared.js 動態產生的 .js-support）：
+  // 原型沒有實際去處，先擋掉預設跳轉
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('.js-support');
+    if (a) e.preventDefault();
+  });
+
+  /* ---------- 「已鎖定」進站狀態 ----------
+     使用者輸錯達上限之後**重新整理再回到這一頁**會看到的畫面，
+     跟另外兩頁（F1-2FA驗證頁-提案.html／F1-忘記密碼-提案.html）同一個道理：
+     這一步是「靜靜地一進站就鎖著」，不是「剛好錯滿那一刻」——系統沒有再發簡訊，
+     說明句要換成「錯誤次數過多，請聯絡客服」，引導句收起來，重發清空。
+
+     otp.lock() 是共用檔 otp-shared.js 的方法，已經會處理輸入框停用／四選一停用／
+     清空重發區／停止倒數這些——這裡只補這頁自己的「說明句換掉、引導句收起來」，
+     並把 otp.lock() 順便顯示出來的 errorBox 訊息收掉（說明句已經把話講完，
+     兩個地方都講會變成同一件事講兩次，跟另外兩頁的處理一致）。 */
+  var guideLine = document.getElementById('guideLine');
+  var otpErrorMsgBox = document.getElementById('otpErrorMsg');
+  var validityWrap = document.getElementById('validityWrap');   // 之前只內嵌傳給 initOtpVerifier()，沒存成變數
+  function showLockedOnLoad() {
+    otp.lock();
+    validityWrap.classList.add('is-locked');
+    guideLine.style.display = 'none';
+    otpErrorMsgBox.classList.remove('show', 'error');
   }
-
-  document.getElementById('otpTimeoutBtn').addEventListener('click', function () {
-    paneOtpTimeout.classList.remove('show');
-    goTo(2);
-  });
-
-  document.getElementById('contactSupportLink').addEventListener('click', function (e) {
-    e.preventDefault();
-  });
+  function clearLockedOnLoad() {
+    validityWrap.classList.remove('is-locked');
+    guideLine.style.display = '';
+  }
 
   /* demo：步驟①密碼不一致狀態預覽，不用真的打兩組不同密碼才能看到 */
   document.querySelectorAll('[data-pw-state]').forEach(function (btn) {
@@ -578,7 +495,7 @@
     });
   });
 
-  /* demo：步驟②的錯誤/逾時狀態預覽，跟其他頁的狀態列同一套邏輯 */
+  /* demo：步驟②的錯誤／碼失效狀態預覽，跟其他頁的狀態列同一套邏輯 */
   document.querySelectorAll('[data-otp-state]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       jumpBtn.forEach(function (b) { b.classList.remove('active'); });
@@ -594,96 +511,22 @@
         otp.fillDemo(['1','2','3','4','5','9']);
         otp.showError();
       }
-      if (s === 'daily') {
+      // 已鎖定、重新整理再進來：不走 otp.reset()（那是「新的一輪」的邏輯，
+      // 會重新洗牌、重新倒數），直接叫 showLockedOnLoad() 顯示「一進站就鎖著」的靜態畫面
+      if (s === 'locked-return') {
+        showLockedOnLoad();
+      }
+      // 碼過期就地提示：說明句換成「驗證碼已失效」＋重發變可按，輸入框不鎖
+      if (s === 'expired') {
         otp.stopResendTimer();   // goTo(2) 剛啟動的倒數要先停掉，否則一秒後被蓋回去
-        otp.setResendCount(3);
-        otp.renderResendRow('limited');
-      }
-      if (s === 'timeout') {
-        otp.stopResendTimer();
-        showOtpTimeout();
+        otp.expire();
       }
     });
   });
 
-  /* ---------- 步驟 3：備用碼 ---------- */
-  var codesGrid = document.getElementById('codesGrid');
-  var finishBtn = document.getElementById('finishBtn');
-  var saveBtns  = Array.prototype.slice.call(document.querySelectorAll('[data-save]'));
-  var codes = [];
-
-  // 產生 10 組 8 碼英數（純英數、不帶連字號，與輸入頁一致）
-  function makeCodes() {
-    var chars = 'abcdefghjkmnpqrstuvwxyz23456789';   // 去掉 i l o 0 1 等易混淆字元
-    var out = [];
-    for (var n = 0; n < 10; n++) {
-      var s = '';
-      for (var k = 0; k < 8; k++) {
-        s += chars[Math.floor(Math.random() * chars.length)];
-      }
-      out.push(s);
-    }
-    return out;
-  }
-
-  function renderCodes() {
-    codes = makeCodes();
-    codesGrid.innerHTML = codes.map(function (c) { return '<li>' + c + '</li>'; }).join('');
-    // 存起來讓 2FA 驗證頁的「改用備用碼」能真的比對這一批（每組用過即作廢）。
-    // 原型沒有後端，用 localStorage 頂替；正式系統當然是存在伺服器端。
-    try { localStorage.setItem('e8d-backup-codes', JSON.stringify(codes)); } catch (e) {}
-  }
-
-  function resetSave() {
-    saveBtns.forEach(function (b) {
-      b.classList.remove('saved');
-      b.querySelector('span').textContent = b.dataset.save === 'download' ? '下載' : '複製';
-    });
-    finishBtn.disabled = true;
-  }
-
-  function markSaved(btn, label) {
-    btn.classList.add('saved');
-    btn.querySelector('span').textContent = label;
-    // ⭐ 關鍵防呆：按過任一個保存動作，「完成設定」才會啟用
-    finishBtn.disabled = false;
-  }
-
-  saveBtns.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var kind = this.dataset.save;
-      var text = 'EVERY8D 雙重驗證備用碼\n帳號：emma\n產生時間：' +
-                 new Date().toLocaleString('zh-TW') +
-                 '\n\n每組備用碼只能使用一次，請妥善保存。\n\n' + codes.join('\n');
-
-      if (kind === 'download') {
-        // Safari 對 Blob 產生的 blob: 網址常會忽略 <a download> 指定的檔名，
-        // 自己塞一個 UUID（appendChild/延後 revoke 都試過，2026-08-01 確認沒用）。
-        // 改用 File 物件（Blob 的子類別，多帶一個 name）——這是這個老 WebKit
-        // 問題唯一可靠的繞法，Safari 會認 File.name 當下載檔名。
-        var file = new File([text], 'every8d-備用碼.txt', { type: 'text/plain;charset=utf-8' });
-        var url = URL.createObjectURL(file);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-        markSaved(this, '已下載');
-      }
-      if (kind === 'copy') {
-        var self = this;
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(text).then(function () { markSaved(self, '已複製'); });
-        } else {
-          markSaved(self, '已複製');
-        }
-      }
-    });
-  });
-
-  finishBtn.addEventListener('click', function () { goTo(4); });
+  /* 2026-08-05：原「步驟 3：備用碼」的整段 JS 已移除——產生 10 組碼、
+     渲染、下載／複製、「保存過才能按完成」的防呆，以及寫進 localStorage
+     給 2FA 驗證頁比對的那份，全部不再需要。 */
 
   goTo(1);
 })();

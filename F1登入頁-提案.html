@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 登入頁 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260803">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
 <script src="demo-mode.js?v=20260801"></script>
 <style>
 
@@ -32,11 +32,6 @@
   /* ---- Floating label 欄位 ---- */
 
   /* ---- 錯誤狀態 ---- */
-  .captcha-field.is-error {
-    border-color: var(--border-error);
-  }
-  .captcha-field.is-error:focus-within { box-shadow: var(--error-ring); }
-
   /* 錯誤訊息：緊接在密碼欄下方，無底色無外框，圖示與文字同色 */
   .form-alert {
     display: none;
@@ -53,99 +48,18 @@
   /* Session 逾時：不是使用者做錯事，是中性通知，用 info 色階跟錯誤訊息區分 */
   .form-alert.info { color: var(--text-info); }
 
-  /* 送出中／已鎖定：欄位變淡不可動（訊息本身不變淡，要保持可讀） */
-  .captcha-field.is-disabled { opacity: .55; pointer-events: none; }
-
-  /* ---- 驗證碼 ---- */
-  .captcha-field {
-    display: flex; align-items: center;
-    height: 56px;
-    padding-right: var(--space-sm);
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-field);
-    margin-bottom: var(--space-md);
-    transition: box-shadow .12s ease, border-color .12s ease;
-  }
-  .captcha-field:focus-within {
-    border-color: var(--border-focus);
-    box-shadow: var(--focus-ring);
-  }
-  .captcha-field .field-float { flex: 1; margin-bottom: 0; height: 100%; }
-  .captcha-field .field-float input {
-    height: 100%; border: none; background: transparent;
-  }
-  .captcha-field .field-float input:focus { border: none; box-shadow: none; }
-
-  .captcha-graphic {
-    position: relative;
-    flex: 0 0 88px; height: 36px;
-    margin-right: var(--space-sm);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-default);
-    background-color: var(--neutral-100);
-    background-image:
-      radial-gradient(circle at 12% 30%, rgba(120,110,100,.45) 1px, transparent 1.2px),
-      radial-gradient(circle at 38% 75%, rgba(120,110,100,.4) 1px, transparent 1.2px),
-      radial-gradient(circle at 62% 20%, rgba(120,110,100,.45) 1px, transparent 1.2px),
-      radial-gradient(circle at 82% 65%, rgba(120,110,100,.4) 1px, transparent 1.2px),
-      radial-gradient(circle at 25% 55%, rgba(120,110,100,.35) 1px, transparent 1.2px),
-      radial-gradient(circle at 70% 45%, rgba(120,110,100,.4) 1px, transparent 1.2px);
-    background-size: 7px 7px, 9px 9px, 6px 6px, 8px 8px, 7px 7px, 10px 10px;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
-  }
-  .captcha-graphic::after {
-    content: "";
-    position: absolute; left: 6%; right: 6%; top: 50%;
-    height: 1px; background: rgba(90,80,72,.35);
-    transform: rotate(-4deg);
-  }
-  .captcha-text {
-    position: relative; z-index: 1;
-    display: inline-flex; gap: 2px;
-    font-size: 17px; font-weight: 700; letter-spacing: 1px;
-    color: var(--neutral-700); user-select: none;
-  }
-  .captcha-text span { display: inline-block; }
-  .captcha-refresh {
-    flex: 0 0 32px;
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    background: none; border: none;
-    border-radius: var(--radius-md);
-    color: var(--text-brand); cursor: pointer;
-    transition: background .12s ease;
-  }
-  /* icon 本身是橘的，hover 配淺橘底才不會出現橘配暖灰的髒感 */
-  .captcha-refresh:hover  { background: var(--bg-brand-hover); }
-  .captcha-refresh:active { background: var(--bg-brand-pressed); }
+  /* 2026-08-05：自製圖形驗證碼（.captcha-*，約 60 行）整段移除，
+     改用 Cloudflare Turnstile 佔位——樣式在 auth-tokens.css 的 .turnstile-box。
+     順帶解掉一個舊技術債：那份 CSS 原本在這頁跟忘記密碼頁各複製了一份 */
 
   /* ---- 記住我 / 忘記密碼 ---- */
   .meta-row {
     display: flex; align-items: center; justify-content: space-between;
     margin: var(--space-lg) 0 var(--space-xl);
   }
-  .remember {
-    display: flex; align-items: center; gap: var(--space-sm);
-    font-size: 13px; color: var(--text-secondary);
-    cursor: pointer; user-select: none;
-  }
-  .remember input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .remember .box {
-    width: 18px; height: 18px;
-    border: 1px solid var(--neutral-300);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    display: flex; align-items: center; justify-content: center;
-    transition: background .12s ease, border-color .12s ease;
-  }
-  .remember .box svg { opacity: 0; color: var(--neutral-white); }
-  .remember input:checked + .box {
-    background: var(--primary-700);
-    border-color: var(--primary-700);
-  }
-  .remember input:checked + .box svg { opacity: 1; }
+  /* 2026-08-06：「記住我」那組 checkbox 樣式已搬進 auth-tokens.css 的
+     .check-line（.remember 保留為別名），這頁不再自己寫一份——
+     2FA 驗證頁的「信任這個裝置」要用同一組樣式 */
 
   .link {
     font-size: 13px; color: var(--text-link); text-decoration: none;
@@ -214,30 +128,28 @@
           <span id="alertText"></span>
         </div>
 
-        <div class="captcha-field" id="captchaField">
-          <div class="field-float">
-            <input id="captcha" type="text" placeholder=" ">
-            <label for="captcha">請輸入驗證碼</label>
-          </div>
-          <div class="captcha-graphic">
-            <span class="captcha-text">
-              <span style="transform:rotate(-8deg)">A</span><span style="transform:rotate(5deg)">F</span><span style="transform:rotate(-4deg)">G</span><span style="transform:rotate(7deg)">K</span>
-            </span>
-          </div>
-          <button type="button" class="captcha-refresh" title="更新驗證碼">
-            <!-- Lucide: rotate-cw -->
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- 圖形驗證碼錯誤：不涉及身分，可以明確講，跟帳密的模糊訊息分開，不共用同一個 alert -->
-        <div class="form-alert" id="captchaAlert">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-          </svg>
-          <span id="captchaAlertText"></span>
+        <!-- ⚠️ Cloudflare Turnstile「示意佔位」（2026-08-05 提案）
+             取代原本的自製圖形驗證碼（4 個扭曲字元＋輸入框＋重新整理鈕）。
+             真正上線時這整塊由 Cloudflare 的 script 產生，外觀我們控制不了，
+             這裡只是照官方 flexible 尺寸（100% × 65px）畫一個等大的佔位，
+             用來看版面節奏。樣式在 auth-tokens.css 的 .turnstile-box。
+             自訂的錯誤訊息行也跟著拿掉了——失敗提示長在 widget 自己裡面。 -->
+        <div class="turnstile-box" id="turnstileBox" data-state="verifying">
+          <span class="ts-indicator">
+            <span class="ts-spinner"></span>
+            <button type="button" class="ts-checkbox" id="tsCheckbox" aria-label="勾選以確認您是真人"></button>
+            <svg class="ts-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg class="ts-cross" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </span>
+          <!-- ⚠️ 這四句是我暫填的中文，只為了看版面。實際文字由 Cloudflare 提供
+               （繁中先用它的預設），等接上後截圖回來再決定要不要覆寫 -->
+          <span class="ts-label">
+            <span class="ts-verifying">正在確認您是真人…</span>
+            <span class="ts-interactive">請勾選以確認您是真人</span>
+            <span class="ts-success">驗證成功</span>
+            <span class="ts-error">驗證失敗，請再試一次</span>
+          </span>
+          <span class="ts-brand"><b>Cloudflare</b>Privacy · Terms</span>
         </div>
       </div>
 
@@ -257,6 +169,11 @@
 
       <button class="btn btn-primary" id="loginBtn"><span id="loginLabel">登入</span></button>
 
+      <!-- 2026-08-06：這裡原本加過一顆 Secondary「聯絡客服」按鈕，已移除。
+           Alvie 的判準：客服不該做成按鈕跟主動作並排，**流程中真的需要時再出現**
+           （收不到簡訊、帳號被鎖）。改成鎖定訊息裡的行內連結，
+           出口一樣給得到，但不佔一個按鈕的份量。 -->
+
       <div class="footer-divider"></div>
       <!-- 兩個並排連結用 .spread（大間距）；單一連結用預設的緊密間距 -->
       <p class="footer-links spread">
@@ -265,10 +182,10 @@
       </p>
       </div>
 
-      <!-- ========== 帳號權限已關閉（情境 A：帳密正確但帳號已關）==========
-           跟忘記密碼流程情境 B 共用同一組 .result-hero.error + 單顆 CTA 樣式，
-           但說明文字依入口分開寫（2026-07-31）：這裡是「帳密都對、登入當下發現已停用」，
-           忘記密碼頁是「OTP 通過後才發現要重設的帳號已停用」，情境不同不硬套同一句。
+      <!-- ========== 帳號已停用（情境 A：帳密正確但帳號已停用）==========
+           跟忘記密碼流程情境 B 共用同一組 .result-hero.error + 單顆 CTA 樣式。
+           2026-08-05：兩個入口的標題與說明統一為同一句——兩邊講的是同一件事
+           （帳號被停用、要找管理員），先前依入口分寫反而讓同一狀態有兩種說法。
            這裡沒有「聯繫管理員」按鈕——沒有標準的管理員聯絡入口，放了也是走不通的出口 -->
       <div class="pane" id="blockedPane">
         <div class="result-hero error">
@@ -277,8 +194,8 @@
               <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
           </div>
-          <h1>帳號權限已關閉</h1>
-          <p>此帳號已停用，如需重新啟用請聯繫您的帳號管理員。</p>
+          <h1>帳號已停用</h1>
+          <p>此帳號目前無法使用，如需重新啟用請聯繫您的帳號管理員。</p>
         </div>
         <button class="btn btn-primary" id="blockedBtn"><span>返回登入</span></button>
       </div>
@@ -294,10 +211,11 @@
   <button data-state="default" class="active">預設</button>
   <button data-state="error">帳密錯誤</button>
   <button data-state="lastchance">剩餘 1 次</button>
-  <button data-state="captcha-error">驗證碼錯誤</button>
+  <button data-state="turnstile-interactive">Turnstile 需互動</button>
+  <button data-state="turnstile-error">Turnstile 失敗</button>
   <button data-state="loading">登入中</button>
   <button data-state="locked">已鎖定</button>
-  <button data-state="disabled">帳號權限已關閉</button>
+  <button data-state="disabled">帳號已停用</button>
   <button data-state="session-timeout">Session 逾時</button>
   <span class="sep"></span>
   <span class="tag">登入後導向</span>
@@ -310,47 +228,63 @@
 (function () {
   var formAlert  = document.getElementById('formAlert');
   var alertText  = document.getElementById('alertText');
-  var captchaAlert     = document.getElementById('captchaAlert');
-  var captchaAlertText = document.getElementById('captchaAlertText');
-  var captchaTextEl    = document.querySelector('.captcha-text');
   var account    = document.getElementById('account');
   var password   = document.getElementById('password');
-  var captcha    = document.getElementById('captcha');
   var loginBtn   = document.getElementById('loginBtn');
   var loginLabel = document.getElementById('loginLabel');
-  var fields     = ['accountField', 'passwordField', 'captchaField'].map(function (id) {
+  var turnstileBox = document.getElementById('turnstileBox');
+  var fields     = ['accountField', 'passwordField'].map(function (id) {
     return document.getElementById(id);
   });
   var loginPane   = document.getElementById('loginPane');
   var blockedPane = document.getElementById('blockedPane');
   var blockedBtn  = document.getElementById('blockedBtn');
-
   /* ---- 狀態切換 ---- */
   function clearAll() {
     fields.forEach(function (f) { f.classList.remove('is-error', 'is-disabled'); });
     formAlert.classList.remove('show', 'error', 'info');
-    captchaAlert.classList.remove('show', 'error');
-    loginBtn.disabled = false;
+    loginBtn.disabled = !turnstilePassed;
     loginLabel.textContent = '登入';
     loginPane.classList.add('active');
     blockedPane.classList.remove('active');
   }
 
-  /* 圖形驗證碼：固定 4 個字位的擺動角度不變，只換字母 —— 錯誤時自動刷新，舊圖作廢 */
-  var CAPTCHA_ROTATIONS = ['-8deg', '5deg', '-4deg', '7deg'];
-  var CAPTCHA_CHARS = 'ACDEFGHJKLMNPQRTUVWXY'; // 排除易混淆的 B/I/O/S/Z/0/1
-  var currentCaptchaAnswer = 'AFGK'; // 追蹤目前顯示的驗證碼，供輸入比對
-  function randomCaptchaText() {
-    var s = '';
-    for (var i = 0; i < 4; i++) s += CAPTCHA_CHARS[Math.floor(Math.random() * CAPTCHA_CHARS.length)];
-    return s;
+  /* ---- Cloudflare Turnstile（示意佔位）----
+     真的 widget 是背景自動跑的，使用者多數情況下什麼都不用做。
+     這裡用 1.5 秒的假延遲模擬「載入 → 通過」，讓 PM 看得到等待的體感。
+
+     ⚠️ 這裡示範的是「**通過後登入鈕才可按**」這個選擇。另一種做法是
+     按鈕一直可按、按下去才檢查 token。兩者的差別要跟工程師確認 token
+     通常多久回來再定：如果都是 1 秒內，鎖按鈕沒感覺；如果偶爾要 5 秒，
+     使用者會盯著暗掉的按鈕不知道在等什麼，那就該改成後者。 */
+  var turnstilePassed = false;
+  var tsTimer = null;   // 那 1.5 秒的假延遲，切狀態時一定要清掉
+
+  function runTurnstile() {
+    clearTimeout(tsTimer);
+    turnstileBox.dataset.state = 'verifying';
+    turnstilePassed = false;
+    loginBtn.disabled = true;
+    tsTimer = setTimeout(function () {
+      turnstileBox.dataset.state = 'success';
+      turnstilePassed = true;
+      loginBtn.disabled = false;
+    }, 1500);
   }
-  function refreshCaptcha() {
-    currentCaptchaAnswer = randomCaptchaText();
-    captchaTextEl.innerHTML = currentCaptchaAnswer.split('').map(function (ch, i) {
-      return '<span style="transform:rotate(' + CAPTCHA_ROTATIONS[i] + ')">' + ch + '</span>';
-    }).join('');
+
+  /* demo 狀態列直接指定 widget 狀態時走這裡。
+     一定要先 clearTimeout——不然 runTurnstile 那顆還在跑的計時器
+     會在 1.5 秒後把畫面改回「驗證成功」，看起來像自己好了（2026-08-05 抓到） */
+  function setTurnstileState(state) {
+    clearTimeout(tsTimer);
+    turnstileBox.dataset.state = state;
+    turnstilePassed = (state === 'success');
+    loginBtn.disabled = !turnstilePassed;
   }
+
+  /* 使用者點勾選框：這就是 Managed 模式要求互動時的**全部**操作——
+     點一下，widget 自己跑驗證，然後通過。沒有選圖片、拼圖那些東西。 */
+  document.getElementById('tsCheckbox').addEventListener('click', runTurnstile);
 
   function disableFields() {
     fields.forEach(function (f) { f.classList.add('is-disabled'); });
@@ -366,17 +300,19 @@
     toggle.classList.toggle('revealed', reveal);
   });
 
-  document.querySelector('.captcha-refresh').addEventListener('click', refreshCaptcha);
-
-  captcha.addEventListener('input', function () {
-    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-    captchaAlert.classList.remove('show', 'error');
-    document.getElementById('captchaField').classList.remove('is-error');
-  });
-
   // 第二個參數是「還剩幾次」，只有實際操作時會傳；demo 狀態列不傳，用預設值當範例
   function setState(s, left) {
     clearAll();
+
+    /* 切到跟 Turnstile 無關的狀態時，widget 一律回到「已通過」。
+       2026-08-05 修：原本沒有這段，於是先點「Turnstile 失敗」再點
+       「Session 逾時」，紅色的 widget 會殘留在畫面上——變成一張
+       「工作階段已逾時」＋「驗證失敗」同時出現的假畫面。
+       真實情境裡走得到帳密錯誤／逾時／鎖定，代表 Turnstile 老早就過了，
+       不可能還停在失敗。 */
+    if (s !== 'turnstile-error' && s !== 'turnstile-interactive') {
+      setTurnstileState('success');
+    }
 
     if (s === 'error') {
       // 資安措辭：不透露帳號是否存在，一律「帳號或密碼錯誤」
@@ -390,18 +326,20 @@
       fields[0].classList.add('is-error');
       fields[1].classList.add('is-error');
       formAlert.classList.add('show', 'error');
-      alertText.innerHTML = '這是最後一次機會，再次輸入錯誤，帳號將鎖定 <b>30 分鐘</b>';
+      /* 2026-08-06：拿掉「鎖定 30 分鐘」——鎖定規則已改成需人工解鎖，
+         這裡若還承諾「30 分鐘」，使用者真的被鎖之後看到的卻是「請聯絡客服」，
+         前後兩句自相矛盾（實測抓到的） */
+      alertText.innerHTML = '這是最後一次機會，再次輸入錯誤將<b>鎖定帳號</b>';
     }
 
-    // 圖形驗證碼錯誤：不涉及身分，可以明確講；只標紅驗證碼欄，不動帳密欄，
-    // 訊息也不跟「帳號或密碼錯誤」共用，兩者分開不混用。錯誤當下自動換一張新圖，舊圖作廢
-    if (s === 'captcha-error') {
-      fields[2].classList.add('is-error');
-      captchaAlert.classList.add('show', 'error');
-      captchaAlertText.textContent = '驗證碼錯誤，請重新輸入';
-      refreshCaptcha();
-      captcha.value = '';   // 換新圖了，舊的輸入留著只會擋路
-    }
+    // Turnstile 驗證失敗：訊息長在 widget 自己裡面（紅框＋「驗證失敗，請再試一次」），
+    // 不需要我們自己那行錯誤訊息，也不會標紅帳密欄——它防的是機器人不是驗身分。
+    // 失敗期間登入鈕鎖住，等它自己重試通過
+    if (s === 'turnstile-error') setTurnstileState('error');
+
+    // Managed 模式判定需要真人互動：勾選框長在同一個 65px 框內，
+    // widget 不會變高、下方按鈕不會被推走（這正是預留固定高度要擋的事）
+    if (s === 'turnstile-interactive') setTurnstileState('interactive');
 
     if (s === 'loading') {
       disableFields();
@@ -414,10 +352,21 @@
       loginBtn.disabled = true;
       loginLabel.textContent = '帳號已鎖定';
       formAlert.classList.add('show', 'error');
-      alertText.innerHTML = '錯誤次數過多，帳號已鎖定，請於 <b>30 分鐘</b>後再試';
+      /* 2026-08-06：文案從「請於 30 分鐘後再試」改成聯絡客服。
+         舊文案是「等一下就好」的語氣，跟新規則（滿 5 次只能人工解鎖）互相矛盾——
+         使用者照著等 30 分鐘回來還是進不去，那才是真的糟糕的體驗。
+
+         「聯絡客服」是行內連結（樣式見 auth-tokens.css 的 .form-alert a）。
+
+         ⚠️ 這一句**當場錯滿與事後再登入共用**（Alvie 定）。
+            我原本想過事後回來要拿掉「錯誤次數過多」（那是在講上一次的事），
+            但保留原因才知道帳號為什麼被鎖，這個資訊比句子精準更有用。 */
+      alertText.innerHTML = '錯誤次數過多，帳號已鎖定，請<a href="#" id="unlockSupport">聯絡客服</a>協助解鎖';
+      var a = document.getElementById('unlockSupport');
+      if (a) a.addEventListener('click', function (e) { e.preventDefault(); });
     }
 
-    // 帳密正確、但帳號權限已關閉：整卡換成阻斷頁，不留表單這條無用的出口
+    // 帳密正確、但帳號已停用：整卡換成阻斷頁，不留表單這條無用的出口
     if (s === 'disabled') {
       loginPane.classList.remove('active');
       blockedPane.classList.add('active');
@@ -448,11 +397,32 @@
     });
   });
 
+  /* ===== ⚙️ 可調整設定（2026-08-06）=====
+     MAX_LOGIN_ATTEMPTS — 帳密可以錯幾次才鎖定帳號，預設 5。
+
+     ⚠️ 這 5 次跟驗證碼的 3 次（otp-shared.js 的 OTP_MAX_ATTEMPTS）
+        是**分開的兩套**，沿用公司其他產品的既有設計，刻意不對齊。
+        兩者未來都可能改、或都收成後端 config，各自改各自的就好。
+
+     ⚠️ 鎖定規則已定案：**永久鎖，只能人工解鎖**（不會 N 分鐘後自動放行）。
+        所以畫面上任何地方都不可再出現「請於 XX 分鐘後再試」這種承諾——
+        使用者照著等，時間到還是進不去，那比一開始就講清楚更糟。
+        鎖定時主按鈕下方會出現「聯絡客服」按鈕，那是唯一出口。 */
+  var MAX_LOGIN_ATTEMPTS = 5;
+
   // demo 帳密：跟欄位預設值一致，不改內容直接按登入就會成功
   var DEMO_PASSWORD = 'Emma88888';
-  // 帳密都對，但帳號狀態不同：emma 正常、emma_disabled 模擬「密碼正確、帳號已停用」，
-  // 用來讓 PM 不必靠下方 demo 狀態列也能真的打帳密觸發「帳號權限已關閉」畫面
-  var ACCOUNT_STATUS = { emma: 'ok', emma_disabled: 'disabled' };
+  /* 帳密都對，但帳號狀態不同，讓 PM 不必靠 demo 狀態列也能真的打帳密觸發：
+       emma           → 正常
+       emma_disabled  → 帳號已停用（管理員關閉）
+       emma_locked    → 帳號已鎖定（錯太多次被鎖，等人工解鎖）
+
+     ⚠️ locked 與 disabled 是兩件事，畫面也不同：
+        停用＝管理員關的，要找「帳號管理員」；鎖定＝自己錯太多次，要找「客服」。
+     ⚠️ emma_locked 代表的是「鎖定之後隔天／重整再來登入」——
+        這時帳密就算打對也不放行，而且訊息不能再講「錯誤次數過多」
+        （那是在講上一次的事，隔天再來看到會覺得莫名其妙）。 */
+  var ACCOUNT_STATUS = { emma: 'ok', emma_disabled: 'disabled', emma_locked: 'locked' };
 
   // demo 用：靜態原型沒有後端能真的判斷「這個帳號是不是第一次登入」，
   // 用這顆獨立開關模擬分岔，決定登入成功後走 happy path A（一般）還是 B（首次）
@@ -478,36 +448,33 @@
     syncStateBar('session-timeout');
   }
 
+  // 進頁面就開始跑 Turnstile（真的 widget 也是一載入就自動驗，不用使用者觸發）
+  runTurnstile();
+
   /* 帳密錯誤次數：真的會遞減，歸零就自動進鎖定，不用靠下方狀態列。
-     上限 5 次與 OTP 輸錯鎖定策略一致。
-     圖形驗證碼錯誤**不計入這個數字**——它防的是機器人不是驗身分，
-     若算進去，任何人都能拿別人的帳號亂輸驗證碼把對方鎖掉（等於開了一個 DoS 出口）。
-     驗證碼錯就換一張重來，帳號安全與否只看帳密。 */
-  var MAX_LOGIN_ATTEMPTS = 5;
+     上限值見檔案上方的設定區（MAX_LOGIN_ATTEMPTS）。
+     Turnstile 失敗**不計入這個數字**——它防的是機器人不是驗身分，
+     若算進去，任何人都能拿別人的帳號亂觸發把對方鎖掉（等於開了一個 DoS 出口）。
+     驗證失敗就重跑一次，帳號安全與否只看帳密。 */
   var loginAttemptsLeft = MAX_LOGIN_ATTEMPTS;
 
-  // 按登入會跑 1.2 秒載入。驗證碼、帳密都對才算成功——
-  // 2FA 強制啟用：一般登入導向簡訊 OTP 驗證頁；首次登入導向強制改密碼（見上方 demo 開關）
+  // 按登入會跑 1.2 秒載入。Turnstile 已通過（按鈕才會亮）＋帳密對才算成功——
+  // 2FA 強制啟用：一般登入導向簡訊 OTP 驗證頁；首次登入導向 2FA 綁定引導（見上方 demo 開關）
   loginBtn.addEventListener('click', function () {
     setState('loading');
     setTimeout(function () {
-      var captchaOk = captcha.value === currentCaptchaAnswer;
       var accountStatus = ACCOUNT_STATUS[account.value];
       var credsOk = !!accountStatus && password.value === DEMO_PASSWORD;
 
-      if (!captchaOk) {
-        setState('captcha-error');
-        syncStateBar('captcha-error');
-        return;
-      }
       if (!credsOk) {
         loginAttemptsLeft = Math.max(0, loginAttemptsLeft - 1);
         // 剩 1 次改用語氣更重的「最後一次機會」，歸零直接鎖定
         if (loginAttemptsLeft === 0)      { setState('locked');     syncStateBar('locked'); }
         else if (loginAttemptsLeft === 1) { setState('lastchance'); syncStateBar('lastchance'); }
         else                              { setState('error', loginAttemptsLeft); syncStateBar('error'); }
-        // 帳密錯誤時舊的圖形驗證碼一併作廢，跟真實系統一致
-        if (loginAttemptsLeft > 0) { refreshCaptcha(); captcha.value = ''; }
+        // 帳密錯誤後 Turnstile 要重跑一次拿新 token（舊 token 一次性、已經消耗掉了）
+        // ——token 是不是真的用過即失效，這點待 PM 確認
+        if (loginAttemptsLeft > 0) runTurnstile();
         return;
       }
       // 帳密正確後才判斷帳號狀態：已停用不用再過 OTP，直接講（跟忘記密碼流程
@@ -517,9 +484,16 @@
         syncStateBar('disabled');
         return;
       }
+      // 帳號已被鎖定：帳密正確也不放行，鎖定只能人工解除。
+      // 文案與「當場錯滿第 5 次」完全相同（Alvie 定：保留原因讓使用者知道為什麼被鎖），
+      // 所以直接共用 'locked' 狀態，不再另開一個分支
+      if (accountStatus === 'locked') {
+        setState('locked');
+        syncStateBar('locked');
+        return;
+      }
       // 帳密＋驗證碼都通過：依 demo 開關決定 happy path A 或 B
-      // 2026-07-31：首次登入改直接連到 2FA 綁定引導頁——「設定密碼」已併入
-      // 那個檔案當作 pane①，F1-強制變更密碼-提案.html 現在只服務「密碼過期」情境
+      // 2026-07-31：首次登入直接連到 2FA 綁定引導頁——「設定密碼」是那個檔案的 pane①
       window.location.href = isFirstLogin
         ? 'F1-2FA綁定引導-提案.html'
         : 'F1-2FA驗證頁-提案.html';

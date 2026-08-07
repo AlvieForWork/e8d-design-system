@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 忘記密碼／找回帳號 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260804b">
+<link rel="stylesheet" href="auth-tokens.css?v=20260807d">
 <script src="demo-mode.js?v=20260801"></script>
+<!-- 這頁的 OTP 主邏輯是自己一套（歷史因素），載入 otp-shared.js 只為了共用
+     initCodeChoice()——不呼叫 initOtpVerifier() 就不會有其他副作用 -->
+<script src="otp-shared.js?v=20260806s"></script>
+<!-- 國碼清單：只有這頁需要選國家（其他頁的手機號是系統帶入，不用使用者自己選） -->
+<script src="country-codes.js?v=20260807"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -45,66 +50,19 @@
 
   /* ---- Floating label 欄位 ---- */
 
-  /* ---- 驗證碼（沿用登入頁，常駐顯示） ---- */
-  .captcha-field {
-    display: flex; align-items: center;
-    height: 56px;
-    padding-right: var(--space-sm);
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-field);
-    margin-bottom: var(--space-md);
-    transition: box-shadow .12s ease, border-color .12s ease;
-  }
-  .captcha-field:focus-within { border-color: var(--border-focus); box-shadow: var(--focus-ring); }
-  .captcha-field.is-error { border-color: var(--border-error); }
-  .captcha-field.is-error:focus-within { box-shadow: var(--error-ring); }
-  .captcha-field .field-float { flex: 1; margin-bottom: 0; height: 100%; }
-  .captcha-field .field-float input { height: 100%; border: none; background: transparent; }
-  .captcha-field .field-float input:focus { border: none; box-shadow: none; }
+  /* 2026-08-05：自製圖形驗證碼（.captcha-*，約 60 行）整段移除，
+     改用 Cloudflare Turnstile 佔位——樣式在 auth-tokens.css 的 .turnstile-box */
 
-  .captcha-graphic {
-    position: relative;
-    flex: 0 0 88px; height: 36px;
-    margin-right: var(--space-sm);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-default);
-    background-color: var(--neutral-100);
-    background-image:
-      radial-gradient(circle at 12% 30%, rgba(120,110,100,.45) 1px, transparent 1.2px),
-      radial-gradient(circle at 38% 75%, rgba(120,110,100,.4) 1px, transparent 1.2px),
-      radial-gradient(circle at 62% 20%, rgba(120,110,100,.45) 1px, transparent 1.2px),
-      radial-gradient(circle at 82% 65%, rgba(120,110,100,.4) 1px, transparent 1.2px),
-      radial-gradient(circle at 25% 55%, rgba(120,110,100,.35) 1px, transparent 1.2px),
-      radial-gradient(circle at 70% 45%, rgba(120,110,100,.4) 1px, transparent 1.2px);
-    background-size: 7px 7px, 9px 9px, 6px 6px, 8px 8px, 7px 7px, 10px 10px;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
+  /* 「已鎖定（重整後）」訊息裡的「聯絡客服」：這頁沒有自己的 .subtitle a 規則，
+     但共用檔 auth-tokens.css 裡有一條 .auth-card .subtitle a{color:var(--text-link)}
+     （給一般藍色連結用），特異度會跟只寫 .subtitle .locked a 的規則打平——
+     要蓋過它就得跟 F1-2FA驗證頁-提案.html 一樣明確覆寫，樣式與色碼都對齊那頁的定案版本 */
+  .subtitle .locked a {
+    color: inherit; font-weight: var(--fw-semi);
+    text-decoration: none; cursor: pointer;
+    transition: color .12s ease;
   }
-  .captcha-graphic::after {
-    content: "";
-    position: absolute; left: 6%; right: 6%; top: 50%;
-    height: 1px; background: rgba(90,80,72,.35);
-    transform: rotate(-4deg);
-  }
-  .captcha-text {
-    position: relative; z-index: 1;
-    display: inline-flex; gap: 2px;
-    font-size: 17px; font-weight: 700; letter-spacing: 1px;
-    color: var(--neutral-700); user-select: none;
-  }
-  .captcha-refresh {
-    flex: 0 0 32px;
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    background: none; border: none;
-    border-radius: var(--radius-md);
-    color: var(--text-brand); cursor: pointer;
-    transition: background .12s ease;
-  }
-  /* icon 是橘的，hover 配淺橘底（color/bg/brand-hover） */
-  .captcha-refresh:hover  { background: var(--bg-brand-hover); }
-  .captcha-refresh:active { background: var(--bg-brand-pressed); }
+  .subtitle .locked a:hover { color: #E42C2F; }
 
   /* ---- 6 格驗證碼 ---- */
   @media (prefers-reduced-motion: reduce) { .otp-row.is-error { animation: none; } }
@@ -118,7 +76,7 @@
 
   /* ---- 密碼規則檢核清單 ---- */
   /* SafeSay 完全沒有這個，使用者只能猜規則；
-     樣式已於 2026-07-31 搬進 auth-tokens.css（強制變更密碼頁共用） */
+     樣式已於 2026-07-31 搬進 auth-tokens.css（首次登入設定密碼那步共用） */
 
   /* ---- 按鈕 ---- */
 
@@ -181,8 +139,16 @@
         <h1>找回帳號與密碼</h1>
         <p class="subtitle">輸入您帳號綁定的手機號碼，驗證後即可取得帳號並重設密碼。</p>
 
+        <!-- 選擇國家 → 自動帶出國碼：只有這頁需要（使用者主動填手機號來找帳號）。
+             左：可下拉的國家選單／右：國碼唯讀顯示（不可編輯），並排同一列。
+             選項由 country-codes.js 的 COUNTRY_CODES 產生，台灣預設選中且釘在最上方 -->
+        <div class="phone-row">
+          <select class="country-select" id="countrySelect" aria-label="選擇國家"></select>
+          <div class="dial-code" id="dialCode" aria-hidden="true">+886</div>
+        </div>
+
         <div class="field-float" id="phoneField">
-          <input id="phone" type="tel" inputmode="numeric" placeholder=" " autocomplete="tel" maxlength="10">
+          <input id="phone" type="tel" inputmode="numeric" placeholder=" " autocomplete="tel">
           <label for="phone">手機號碼</label>
         </div>
 
@@ -194,25 +160,31 @@
           <span id="msg1PhoneText"></span>
         </div>
 
-        <!-- 圖形驗證碼常駐：忘記密碼會觸發真的簡訊，不設閘門等於開放別人幫我們燒錢 -->
-        <div class="captcha-field" id="captchaField">
-          <div class="field-float">
-            <input id="captcha" type="text" placeholder=" " autocomplete="off" maxlength="4">
-            <label for="captcha">請輸入驗證碼</label>
-          </div>
-          <div class="captcha-graphic">
-            <span class="captcha-text" id="captchaText1">
-              <span style="transform:rotate(-8deg)">H</span><span style="transform:rotate(5deg)">7</span><span style="transform:rotate(-4deg)">R</span><span style="transform:rotate(7deg)">M</span>
-            </span>
-          </div>
-          <button type="button" class="captcha-refresh" title="更新驗證碼">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
-            </svg>
-          </button>
+        <!-- ⚠️ Cloudflare Turnstile「示意佔位」（2026-08-05 提案）
+             取代原本的自製圖形驗證碼。這頁的閘門特別重要——忘記密碼會觸發真的簡訊，
+             不擋機器人等於開放別人幫我們燒錢。
+             真正上線時這整塊由 Cloudflare 的 script 產生，外觀我們控制不了；
+             這裡只是照官方 flexible 尺寸（100% × 65px）畫等大的佔位看版面。
+             樣式在 auth-tokens.css 的 .turnstile-box -->
+        <div class="turnstile-box" id="turnstileBox" data-state="verifying">
+          <span class="ts-indicator">
+            <span class="ts-spinner"></span>
+            <button type="button" class="ts-checkbox" id="tsCheckbox" aria-label="勾選以確認您是真人"></button>
+            <svg class="ts-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg class="ts-cross" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </span>
+          <!-- ⚠️ 這四句是我暫填的中文，只為了看版面。實際文字由 Cloudflare 提供
+               （繁中先用它的預設），等接上後截圖回來再決定要不要覆寫 -->
+          <span class="ts-label">
+            <span class="ts-verifying">正在確認您是真人…</span>
+            <span class="ts-interactive">請勾選以確認您是真人</span>
+            <span class="ts-success">驗證成功</span>
+            <span class="ts-error">驗證失敗，請再試一次</span>
+          </span>
+          <span class="ts-brand"><b>Cloudflare</b>Privacy · Terms</span>
         </div>
 
-        <!-- 圖形驗證碼自己的錯誤訊息：不涉及身分可以明確講，跟手機的訊息分開，不合併成一條 -->
+        <!-- 保留這個訊息槽給手機號格式錯誤用；Turnstile 的失敗提示長在 widget 自己裡面 -->
         <div class="msg" id="msg1Captcha">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
@@ -220,7 +192,9 @@
           <span id="msg1CaptchaText"></span>
         </div>
 
-        <button class="btn btn-primary" id="sendBtn" style="margin-top:var(--space-lg)"><span id="sendLabel">發送驗證碼</span></button>
+        <!-- 2026-08-06：「發送驗證碼」→「發送驗證簡訊」。接 SafeSay 之後
+             這顆鈕送出的是一則帶連結的簡訊，不是驗證碼本身 -->
+        <button class="btn btn-primary" id="sendBtn" style="margin-top:var(--space-lg)"><span id="sendLabel">發送驗證簡訊</span></button>
 
         <div class="footer-divider"></div>
         <p class="footer-links">
@@ -231,13 +205,29 @@
       <!-- ========== Step 2：簡訊驗證碼 ========== -->
       <div class="pane" id="pane2">
 
-        <h1>輸入驗證碼</h1>
+        <!-- 2026-08-06：三個 OTP 頁標題統一成「簡訊驗證」（完整理由寫在
+             F1-2FA驗證頁-提案.html 的同一處註解）。原本這裡是「輸入驗證碼」，
+             除了跟另兩頁不一致，還跟上方 stepper 的「驗證碼」重複 -->
+        <h1>簡訊驗證</h1>
 
         <!-- 這頁原本說明區是空的，2026-08-04 補上跟另兩頁一致的說明句；
-             交易代碼／有效時間串進同一句、同一行，不另起一行 -->
+             有效時間串進同一句、同一行，不另起一行。
+             2026-08-05：交易代碼從這句拿掉——代碼改成四選一之後，
+             顯示在這裡等於把答案寫在題目旁邊 -->
+        <!-- 2026-08-06 接 SafeSay：簡訊只帶連結，碼要去 SafeSay 讀取，
+             故補上受詞「已發送簡訊」＋補上「點簡訊中的連結」這一步。
+             ⚠️ 180 只是佔位，實際值由 otp-shared.js 的 OTP_VALIDITY_SEC 填入 -->
+        <!-- 引導句包進 #guideLine：鎖定狀態要整段收起來（沒有碼可以取，
+             留著只會叫使用者去做一件做不到的事）——跟 F1-2FA驗證頁-提案.html 同做法 -->
         <p class="subtitle">
-          驗證碼已發送至您綁定的手機 <b>0912****347</b>，交易代碼 <b id="txCode">ABC</b>，有效時間 <b id="validitySec">180</b> 秒
+          <span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span>
         </p>
+
+        <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
+             選項由 otp-shared.js 的 initCodeChoice() 產生並每次洗牌，三頁共用同一份。
+             這頁的 OTP 主邏輯沒接 otp-shared.js（歷史因素，自己一套），
+             但選碼這塊仍然共用，避免又長出第二份實作 -->
+        <div class="code-choice-row" id="codeChoiceRow" role="radiogroup" aria-label="驗證代碼"></div>
 
         <div class="otp-row" id="otpRow">
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 1 碼">
@@ -248,16 +238,27 @@
           <input type="text" inputmode="numeric" maxlength="1" aria-label="驗證碼第 6 碼">
         </div>
 
-        <div class="msg" id="msg2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-          </svg>
-          <span id="msg2Text"></span>
+        <!-- 2026-08-07：錯誤提示／重發／驗證鈕統一收進 .otp-footer（flex+gap
+             系統，定義在 auth-tokens.css），按鈕上方間距才不會因為哪個元件
+             有沒有顯示而時大時小——跟另外兩個 OTP 頁同一套規則 -->
+        <div class="otp-footer">
+          <div class="msg" id="msg2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+            <span id="msg2Text"></span>
+          </div>
+
+          <div class="resend-row" id="resendRow"></div>
+
+          <!-- 2026-08-06 再次校正：「還是收不到簡訊？聯絡客服」整行拿掉。
+               Alvie 定的規則：客服入口只在「已鎖定」狀態出現（鎖定紅字裡的
+               粗體「聯絡客服」），只要還沒鎖定、使用者還能重新發送簡訊
+               （正常可輸入／可重發／驗證錯誤還可再試），都不該有第二個客服入口，
+               三個 OTP 頁一致——這頁跟首次設定頁先前漏改，只改了日常登入 2FA 頁。 -->
+
+          <button class="btn btn-primary" id="verifyBtn" disabled><span id="verifyLabel">驗證</span></button>
         </div>
-
-        <div class="resend-row" id="resendRow"></div>
-
-        <button class="btn btn-primary" id="verifyBtn" disabled><span id="verifyLabel">驗證</span></button>
 
         <div class="footer-divider"></div>
         <p class="footer-links">
@@ -359,7 +360,7 @@
             <svg id="iconWarn" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
               <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
             </svg>
-            <!-- 阻斷狀態：帳號權限已關閉／非母帳號 -->
+            <!-- 阻斷狀態：帳號已停用 -->
             <svg id="iconBlock" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
               <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
@@ -381,16 +382,18 @@
   <span class="tag">① 手機</span>
   <button data-state="s1" class="active">預設</button>
   <button data-state="s1-format">格式錯誤</button>
-  <button data-state="s1-captcha">驗證碼錯誤</button>
-  <button data-state="s1-both">兩者都錯</button>
+  <button data-state="s1-ts-interactive">Turnstile 需互動</button>
+  <button data-state="s1-turnstile">Turnstile 失敗</button>
   <span class="sep"></span>
   <span class="tag">② 驗證碼</span>
   <button data-state="s2">輸入中</button>
   <button data-state="s2-error">驗證失敗</button>
   <button data-state="s2-locked">錯誤達上限</button>
-  <button data-state="s2-daily">簡訊已達上限</button>
-  <button data-state="s2-disabled">通過後：權限已關閉</button>
-  <button data-state="s2-notowner">通過後：非母帳號</button>
+  <!-- 「錯誤達上限」是當場錯滿那一刻；這顆是隔天／重整後再進來看到的樣子，兩者畫面不同
+       （跟 F1-2FA驗證頁-提案.html 的 locked-return 狀態同一個道理） -->
+  <button data-state="s2-locked-return">已鎖定（重整後）</button>
+  <button data-state="s2-expired">驗證碼已失效</button>
+  <button data-state="s2-disabled">通過後：帳號已停用</button>
   <span class="sep"></span>
   <span class="tag">③ 新密碼</span>
   <button data-state="s3">預設</button>
@@ -398,7 +401,6 @@
   <span class="sep"></span>
   <span class="tag">④ 結果</span>
   <button data-state="s4">完成</button>
-  <button data-state="s4-expired">已逾時</button>
 </div>
 
 <script>
@@ -410,13 +412,12 @@
 
   var phone       = document.getElementById('phone');
   var phoneField  = document.getElementById('phoneField');
-  var captcha     = document.getElementById('captcha');
-  var captchaField= document.getElementById('captchaField');
+  var countrySelect = document.getElementById('countrySelect');
+  var dialCodeEl  = document.getElementById('dialCode');
   var msg1Phone      = document.getElementById('msg1Phone');
   var msg1PhoneText  = document.getElementById('msg1PhoneText');
   var msg1Captcha    = document.getElementById('msg1Captcha');
   var msg1CaptchaText= document.getElementById('msg1CaptchaText');
-  var captchaText1   = document.getElementById('captchaText1');
   var sendBtn     = document.getElementById('sendBtn');
   var sendLabel   = document.getElementById('sendLabel');
 
@@ -446,31 +447,52 @@
   var iconWarn    = document.getElementById('iconWarn');
   var iconBlock   = document.getElementById('iconBlock');
 
-  var MAX_OTP_ATTEMPTS = 5;   // 與帳密錯誤鎖定策略一致（SafeSay 也是 5 次）
+  /* 2026-08-06：次數改讀 otp-shared.js 的 OTP_MAX_ATTEMPTS（3 次），這頁不再自己寫死。
+     ⚠️ 這 3 次跟帳密錯誤的 5 次是**分開的兩套**，刻意不對齊 */
+  var MAX_OTP_ATTEMPTS = (typeof OTP_MAX_ATTEMPTS !== 'undefined') ? OTP_MAX_ATTEMPTS : 3;
   var otpAttemptsLeft = MAX_OTP_ATTEMPTS;
   var timer = null;
 
-  // 簡訊「發送」次數上限（防簡訊轟炸/成本）——跟上面 OTP「輸入」錯誤次數上限是兩件事，
-  // 這個只影響 resendRow 這個狀態區塊，不影響 otpRow／msg2
-  var MAX_RESENDS = 3;
-  var resendCount = 0;
+  /* 有效時間倒數：跟上面 timer（重發倒數）是各自獨立的計時器變數，互不干擾。
 
-  // 有效時間倒數（交易代碼那行）：跟上面 timer（重發倒數）是各自獨立的計時器變數，
-  // 互不干擾。歸零時直接叫 showResult(true) 跳去「驗證已逾時」，這頁原本沒有這個
-  // 機制——逾時頁 2026-08-04 之前只能從 demo 狀態列手動點出來看，不會真的自動觸發
-  var VALIDITY_SEC = 180;
+     2026-08-05：歸零不再跳「驗證已逾時」結果頁，改成就地提示——說明句那段
+     換成「驗證碼已失效，請重新發送」，重發鈕立刻變可按，輸入框**不鎖**
+     （使用者仍可打，只是打了一定失敗）。使用者要的只是再一組碼，
+     不該為此被丟回步驟①重走一次。 */
+  /* 2026-08-06：秒數改讀 otp-shared.js 最上方的 OTP_VALIDITY_SEC，這頁不再自己寫死。
+     這頁的 OTP 主邏輯雖然仍是獨立一份，但「有效時間幾秒」這個設定值三頁必須一致——
+     接 SafeSay 後使用者要離開畫面去領碼，之後很可能要調高，只該有一個地方要改 */
+  var VALIDITY_SEC = (typeof OTP_VALIDITY_SEC !== 'undefined') ? OTP_VALIDITY_SEC : 180;
+  var RESEND_SEC   = (typeof OTP_RESEND_SEC   !== 'undefined') ? OTP_RESEND_SEC   : 60;
   var validityTimer = null;
   var validityLeft = VALIDITY_SEC;
   var validitySecEl = document.getElementById('validitySec');
+  var validityWrap  = document.getElementById('validityWrap');
+  var guideLine     = document.getElementById('guideLine');
+  var otpExpired = false;
+
+  // 畫面上「有效時間 NNN 秒」的初始數字由這裡填，HTML 裡的只是佔位
+  validitySecEl.textContent = VALIDITY_SEC;
+
+  function setExpired(on) {
+    otpExpired = !!on;
+    validityWrap.classList.toggle('is-expired', otpExpired);
+  }
 
   function startValidityCountdown() {
     clearInterval(validityTimer);
+    setExpired(false);
     validityLeft = VALIDITY_SEC;
     validitySecEl.textContent = validityLeft;
     validityTimer = setInterval(function () {
       validityLeft--;
-      if (validityLeft <= 0) { clearInterval(validityTimer); showResult(true); }
-      else validitySecEl.textContent = validityLeft;
+      if (validityLeft <= 0) {
+        clearInterval(validityTimer);
+        setExpired(true);
+        // 碼過期的當下就讓重發可按，不要求使用者再等重發倒數跑完
+        clearInterval(timer);
+        renderResendRow('ready');
+      } else validitySecEl.textContent = validityLeft;
     }, 1000);
   }
   function stopValidityCountdown() { clearInterval(validityTimer); }
@@ -483,7 +505,7 @@
     // 第 4 個畫面（結果）在指示器上算第 3 步完成。
     // 阻斷狀態例外：流程停在使用者當時所在的那一步，不推進也不算完成
     var logical = opts.stopAt || Math.min(n, 3);
-    var allDone = (n === 4 && !opts.expired && !opts.stopAt && !opts.blocked);
+    var allDone = (n === 4 && !opts.stopAt && !opts.blocked);
     dots.forEach(function (d, i) {
       var idx = i + 1;
       d.classList.toggle('current', !allDone && idx === logical);
@@ -495,63 +517,115 @@
   }
 
   /* ---------- Step 1 ---------- */
-  /* 圖形驗證碼：固定 4 個字位的擺動角度不變，只換字母 —— 錯誤時自動刷新，舊圖作廢 */
-  var CAPTCHA_ROTATIONS = ['-8deg', '5deg', '-4deg', '7deg'];
-  var CAPTCHA_CHARS = 'ACDEFGHJKLMNPQRTUVWXY'; // 排除易混淆的 B/I/O/S/Z/0/1
-  var currentCaptchaAnswer = 'H7RM'; // 追蹤目前顯示的驗證碼，供輸入比對
-  function randomCaptchaText() {
-    var s = '';
-    for (var i = 0; i < 4; i++) s += CAPTCHA_CHARS[Math.floor(Math.random() * CAPTCHA_CHARS.length)];
-    return s;
+  /* ---- Cloudflare Turnstile（示意佔位）----
+     真的 widget 是背景自動跑的，這裡用 1.5 秒假延遲模擬「載入 → 通過」。
+     ⚠️ 這裡示範「**通過後發送鈕才可按**」；另一種做法是按鈕一直可按、
+     按下去才檢查 token。要看實際 token 多久回來才好定，見 auth-tokens.css 的註解。 */
+  var turnstileBox = document.getElementById('turnstileBox');
+  var turnstilePassed = false;
+  var tsTimer = null;   // 那 1.5 秒的假延遲，切狀態時一定要清掉
+
+  function runTurnstile() {
+    clearTimeout(tsTimer);
+    turnstileBox.dataset.state = 'verifying';
+    turnstilePassed = false;
+    syncSendBtn();
+    tsTimer = setTimeout(function () {
+      turnstileBox.dataset.state = 'success';
+      turnstilePassed = true;
+      syncSendBtn();
+    }, 1500);
   }
-  function refreshCaptcha1() {
-    currentCaptchaAnswer = randomCaptchaText();
-    captchaText1.innerHTML = currentCaptchaAnswer.split('').map(function (ch, i) {
-      return '<span style="transform:rotate(' + CAPTCHA_ROTATIONS[i] + ')">' + ch + '</span>';
-    }).join('');
+
+  /* demo 狀態列直接指定 widget 狀態時走這裡。
+     一定要先 clearTimeout——這頁的 demo 分支會先呼叫 resetStep1()（裡面有 runTurnstile），
+     不清掉的話那顆計時器 1.5 秒後會把畫面改回「驗證成功」（2026-08-05 抓到） */
+  function setTurnstileState(state) {
+    clearTimeout(tsTimer);
+    turnstileBox.dataset.state = state;
+    turnstilePassed = (state === 'success');
+    syncSendBtn();
   }
-  document.querySelectorAll('#captchaField .captcha-refresh').forEach(function (btn) {
-    btn.addEventListener('click', refreshCaptcha1);
+
+  /* 使用者點勾選框：這就是 Managed 模式要求互動時的**全部**操作——
+     點一下，widget 自己跑驗證，然後通過。沒有選圖片、拼圖那些東西。 */
+  document.getElementById('tsCheckbox').addEventListener('click', runTurnstile);
+
+  /* ---------- 選擇國家 → 自動帶出國碼（2026-08-07）----------
+     只有這頁需要：使用者要主動輸入手機號來找帳號，其他頁的手機號是系統帶入的。
+     台灣格式比較特殊，多寫兩個 helper：isTaiwanSelected() 判斷用 ISO 碼（不是國碼字串，
+     避免萬一未來有其他國家剛好共用同一個 dial 值時誤判）；normalizePhone() 只在台灣情境
+     生效，把「帶 0」「不帶 0」兩種寫法都收斂成同一個 9 碼版本，PHONE_OUTCOMES 的比對
+     跟格式檢查都要用正規化後的值，兩邊寫法才不會互相打架。 */
+  COUNTRY_CODES.forEach(function (c) {
+    var opt = document.createElement('option');
+    opt.value = c.dial;
+    opt.textContent = c.name;
+    opt.dataset.iso = c.iso;
+    if (c.iso === 'TW') opt.selected = true;
+    countrySelect.appendChild(opt);
   });
 
-  phone.addEventListener('input', function () {
-    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  function isTaiwanSelected() {
+    var opt = countrySelect.options[countrySelect.selectedIndex];
+    return !!opt && opt.dataset.iso === 'TW';
+  }
+  function applyPhoneMaxLen() {
+    // 台灣最長 10 碼（09 開頭那種寫法）；其他國家寬鬆抓 E.164 號碼本體上限
+    phone.maxLength = isTaiwanSelected() ? 10 : 15;
+  }
+  function normalizePhone(raw) {
+    if (isTaiwanSelected() && /^09\d{8}$/.test(raw)) return raw.slice(1); // 去掉開頭 0，統一成 9 碼
+    return raw;
+  }
+  function isValidPhone() {
+    var raw = phone.value;
+    if (isTaiwanSelected()) {
+      // 09 開頭 10 碼、或已經去 0 的 9 開頭 9 碼，兩種寫法都收
+      return /^09\d{8}$/.test(raw) || /^9\d{8}$/.test(raw);
+    }
+    // 其他國家：原型不逐一維護 240 國的號碼長度規則，只做寬鬆檢查（純數字、長度合理）
+    return /^\d{4,15}$/.test(raw);
+  }
+  function resetCountrySelect() {
+    for (var i = 0; i < countrySelect.options.length; i++) {
+      if (countrySelect.options[i].dataset.iso === 'TW') { countrySelect.selectedIndex = i; break; }
+    }
+    dialCodeEl.textContent = '+' + countrySelect.value;
+  }
+  resetCountrySelect();
+  applyPhoneMaxLen();
+
+  countrySelect.addEventListener('change', function () {
+    dialCodeEl.textContent = '+' + countrySelect.value;
+    applyPhoneMaxLen();
+    phone.value = phone.value.slice(0, phone.maxLength);
     clearMsg(msg1Phone); phoneField.classList.remove('is-error');
     syncSendBtn();
   });
-  captcha.addEventListener('input', function () {
-    this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-    clearMsg(msg1Captcha); captchaField.classList.remove('is-error');
+
+  phone.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, this.maxLength);
+    clearMsg(msg1Phone); phoneField.classList.remove('is-error');
     syncSendBtn();
   });
   function syncSendBtn() {
-    sendBtn.disabled = !(phone.value.length === 10 && captcha.value.length === 4);
+    sendBtn.disabled = !(isValidPhone() && turnstilePassed);
   }
 
   sendBtn.addEventListener('click', function () {
-    // 手機格式、圖形驗證碼各自獨立檢查，各自標紅／各自報錯，不合併成一條、
-    // 也不因為手機先錯就跳過驗證碼的檢查——兩者都可能同時錯
-    var phoneOk = /^09\d{8}$/.test(phone.value);
-    var captchaOk = captcha.value === currentCaptchaAnswer;
-    var hasError = false;
-
-    if (!phoneOk) {
+    // 只剩手機格式要檢查——Turnstile 通過與否由 widget 自己負責，
+    // 沒通過的話發送鈕根本不會亮
+    if (!isValidPhone()) {
       phoneField.classList.add('is-error');
       showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
-      hasError = true;
+      return;
     }
-    if (!captchaOk) {
-      captchaField.classList.add('is-error');
-      showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
-      refreshCaptcha1();
-      hasError = true;
-    }
-    if (hasError) return;
 
     sendBtn.disabled = true;
     sendLabel.innerHTML = '<span class="spinner"></span>';
     setTimeout(function () {
-      sendLabel.textContent = '發送驗證碼';
+      sendLabel.textContent = '發送驗證簡訊';
       sendBtn.disabled = false;
       goStep2();
     }, 1000);
@@ -561,7 +635,7 @@
   function goStep2() {
     showStep(2);
     resetOtp();
-    startCountdown(60);
+    startCountdown(RESEND_SEC);
     otpInputs[0].focus();
   }
 
@@ -569,7 +643,7 @@
     input.addEventListener('input', function () {
       this.value = this.value.replace(/\D/g, '').slice(0, 1);
       this.classList.toggle('filled', this.value !== '');
-      clearMsg(msg2); otpRow.classList.remove('is-error');
+      clearMsg(msg2); otpRow.classList.remove('is-error'); codeChoice.clearError();
       if (this.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
       syncVerifyBtn();
     });
@@ -598,12 +672,28 @@
   });
 
   function otpValue() { return otpInputs.map(function (i) { return i.value; }).join(''); }
-  // 輸滿六格即自動送出，跟 2FA 兩頁（otp-shared.js）行為一致；
-  // 按鈕保留手動路徑（例如輸錯後想用同一組碼再送一次）
+
+  /* 驗證代碼四選一：元件本身共用 otp-shared.js 的 initCodeChoice()，
+     只有「接線」這段因為這頁沒用 initOtpVerifier() 而要自己寫。
+     選完代碼把游標接到還沒填的那一格，省使用者再點一次輸入框 */
+  function focusNextEmptyOtp() {
+    for (var i = 0; i < otpInputs.length; i++) {
+      if (!otpInputs[i].value) { otpInputs[i].focus(); return; }
+    }
+    // 六格都填滿就不搶焦點——使用者接下來要按的是「驗證」
+  }
+
+  var codeChoice = initCodeChoice({
+    row: document.getElementById('codeChoiceRow'),
+    onChange: function () { syncVerifyBtn(); focusNextEmptyOtp(); }
+  });
+
+  /* 「可以送出」＝六格填滿且已選代碼，跟 2FA 兩頁（otp-shared.js）行為一致。
+     2026-08-05：**只切換按鈕狀態，不自動送出**——這是「四選一代碼＋六位數」
+     雙重驗證，填滿第六碼就搶先送出會讓還沒選代碼／還想核對的人白吃一次錯誤次數。
+     送出一律由使用者自己按「驗證」觸發（下方 verifyBtn 的 click）。 */
   function syncVerifyBtn() {
-    var done = otpValue().length === 6;
-    verifyBtn.disabled = !done;
-    if (done) doVerify();
+    verifyBtn.disabled = !(otpValue().length === 6 && !!codeChoice.getSelected());
   }
 
   // demo 固定測試碼，跟 2FA 兩頁同一組；輸錯走下方 showOtpError() 的遞減與鎖定
@@ -613,20 +703,26 @@
      判斷放在 OTP 驗證通過之後才做——維持「先證明持有該手機、才揭露帳號狀態」
      的原則，不會變成沒驗證身份就能查帳號狀態的列舉管道。
      其他任何符合格式的號碼一律走正常路徑，PM 誤打別的號碼不會卡住。 */
+  /* key 用正規化後的 9 碼版本（去掉開頭 0）—— doVerify() 一律用正規化過的號碼查表，
+     使用者不論打 0900000002 還是 900000002 都要能對上同一筆 */
   var PHONE_OUTCOMES = {
-    '0900000002': 'disabled',
-    '0900000003': 'notOwner'
+    '900000002': 'disabled'
   };
 
   function doVerify() {
     otpRow.classList.add('is-loading');
+    codeChoice.setDisabled(true);
     verifyBtn.disabled = true;
     verifyLabel.innerHTML = '<span class="spinner"></span>驗證中';
     setTimeout(function () {
       otpRow.classList.remove('is-loading');
+      codeChoice.setDisabled(false);
       verifyLabel.textContent = '驗證';
-      if (otpValue() !== CORRECT_OTP) { showOtpError(); return; }
-      var outcome = PHONE_OUTCOMES[phone.value];
+      // 代碼選錯、驗證碼打錯、碼已過期，一律視為同一件事：驗證失敗、吃掉一次機會。
+      // 不分開講是哪個錯——分開講等於告訴攻擊者「代碼你猜對了」。
+      // 過期後即使打對也不給過：那組碼在真實系統裡已經不能用了
+      if (otpExpired || otpValue() !== CORRECT_OTP || !codeChoice.isCorrect()) { showOtpError(); return; }
+      var outcome = PHONE_OUTCOMES[normalizePhone(phone.value)];
       if (outcome) showBlocked(outcome);
       else goStep3();
     }, 1000);
@@ -641,32 +737,70 @@
     otpRow.classList.remove('is-error');
     void otpRow.offsetWidth;
     otpRow.classList.add('is-error');
+    codeChoice.showError();
     if (otpAttemptsLeft > 0) {
       showMsg(msg2, msg2Text, 'error', '驗證碼錯誤，還可以再嘗試 <b>' + otpAttemptsLeft + '</b> 次');
       // 錯了就清空六格、游標回第一格，跟 otp-shared.js 的行為一致
       // （不清空的話舊碼還留著＝已填滿，使用者改一格就立刻重送，白吃一次機會）
       otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
+      // 代碼選取一併清掉：不清的話使用者只會一直重打六位數，
+      // 若錯的其實是代碼，他會一路錯到鎖定都不知道要回頭看代碼
+      codeChoice.clearSelection();
       verifyBtn.disabled = true;
       otpInputs[0].focus();
     } else {
-      // 兩階鎖定：第 1 次 30 分自動解鎖
-      showMsg(msg2, msg2Text, 'error', '錯誤次數過多，請於 <b>30 分鐘</b>後再試');
+      /* 2026-08-06：鎖定規則定案為**永久鎖、只能人工解鎖**（與 otp-shared.js 一致）。
+         不可出現任何「XX 後再試」的承諾——等到了還是進不去比一開始就講清楚更糟。
+         「聯絡客服」是行內連結（樣式見 auth-tokens.css 的 .msg a） */
+      showMsg(msg2, msg2Text, 'error', '錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖');
       otpRow.classList.add('is-disabled');
+      codeChoice.setDisabled(true);
       verifyBtn.disabled = true;
       clearInterval(timer);
       resendRow.innerHTML = '';
-      // 30 分鐘鎖定蓋過 3 分鐘的驗證碼有效時間，鎖定中不該讓它繼續倒數
-      // （不然歸零會跳去「驗證已逾時」頁，蓋掉這裡的鎖定訊息）
+      // 鎖定蓋過 3 分鐘的驗證碼有效時間，鎖定中不該讓它繼續倒數
+      // （不然歸零會把說明改成「已失效，請重新發送」，跟「請聯絡客服解鎖」互相打架）
       stopValidityCountdown();
     }
   }
 
-  /* ---------- 重新發送：狀態區塊，同一格永遠只顯示一種內容 ----------
-     可重發／倒數中／已達上限，三態互斥，不併排、不疊加。
-     已達上限時整行換成錯誤文案，不跟倒數/重發文字並存 */
-  function renderResendRow(state, sec) {
-    resendRow.classList.toggle('is-limit', state === 'limited');
+  /* ---------- 「已鎖定」進站狀態 ----------
+     使用者輸錯達上限之後**重新整理再回到這一頁**會看到的畫面。
 
+     這跟 showOtpError() 觸發的「當場錯滿第 3 次」不是同一件事：那一刻有抖動動畫、
+     有剛扣掉的次數；重整回來則是靜靜地一進站就鎖著，而且**系統沒有再發簡訊**——
+     所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」換成「錯誤次數過多，請聯絡客服」，
+     引導句整段收起來，重發那行清空（不清的話重整一次就能多送一則簡訊）。
+     跟 F1-2FA驗證頁-提案.html 的 showLockedOnLoad() 同一個道理，這頁因為 OTP
+     主邏輯是獨立一份（歷史因素），所以另外寫一份對應的函式，不是共用同一支。
+
+     真實系統靠後端查這支手機號對應帳號的鎖定狀態；原型沒有後端，用 demo 狀態列模擬。 */
+  function showLockedOnLoad() {
+    otpAttemptsLeft = 0;
+    otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
+    otpRow.classList.add('is-disabled');
+    codeChoice.setDisabled(true);
+    verifyBtn.disabled = true;
+    clearInterval(timer);
+    resendRow.innerHTML = '';
+    stopValidityCountdown();
+    validityWrap.classList.add('is-locked');
+    guideLine.style.display = 'none';
+    // 下方 .msg 紅字要收掉——說明句已經把「錯太多次、鎖了、怎麼辦」一次講完，
+    // 留著等於同一件事講兩次（跟 F1-2FA驗證頁-提案.html 同一個理由）
+    clearMsg(msg2);
+  }
+  function clearLockedOnLoad() {
+    validityWrap.classList.remove('is-locked');
+    guideLine.style.display = '';
+  }
+
+  /* ---------- 重新發送：狀態區塊，同一格永遠只顯示一種內容 ----------
+     2026-08-05：拿掉第三態「今日簡訊次數已達上限」——每日發送次數上限
+     這條規則已取消，只剩倒數中／可重發兩態。「輸錯 5 次鎖定」是另一回事，
+     在上面 showOtpError() 裡，完整保留。
+     倒數中／可重發，兩態互斥，不併排、不疊加 */
+  function renderResendRow(state, sec) {
     if (state === 'counting') {
       resendRow.innerHTML = '沒收到簡訊？<span class="countdown">' + sec + '</span> 秒後可重新發送';
       return;
@@ -676,25 +810,19 @@
         '沒收到簡訊？<button class="resend-btn" type="button" id="resendBtn">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>' +
-          '重新發送驗證碼</button>';
+          // 2026-08-06：接 SafeSay 後發出去的是「一則帶連結的簡訊」不是驗證碼，
+          // 說明句已改成「請點簡訊中的連結」，這顆鈕不能再講「重新發送驗證碼」
+          '重新發送簡訊</button>';
       document.getElementById('resendBtn').addEventListener('click', function () {
-        resendCount++;
         resendRow.innerHTML =
           '<span class="resend-sent">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
             '已重新發送</span>';
-        setTimeout(function () {
-          if (resendCount >= MAX_RESENDS) renderResendRow('limited');
-          else startCountdown(60);
-        }, 1600);
+        // 重發＝拿到一組新碼：有效時間從頭跑、失效提示收掉
+        startValidityCountdown();
+        setTimeout(function () { startCountdown(RESEND_SEC); }, 1600);
       });
       return;
-    }
-    if (state === 'limited') {
-      resendRow.innerHTML =
-        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-          '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>' +
-        '<span>今日簡訊次數已達上限，請明日再試，或聯絡客服協助</span>';
     }
   }
 
@@ -706,7 +834,7 @@
       left--;
       if (left <= 0) {
         clearInterval(timer);
-        renderResendRow(resendCount >= MAX_RESENDS ? 'limited' : 'ready');
+        renderResendRow('ready');
       } else render();
     }, 1000);
     function render() { renderResendRow('counting', left); }
@@ -756,7 +884,7 @@
     submitLabel.innerHTML = '<span class="spinner"></span>';
     setTimeout(function () {
       submitLabel.textContent = '更新密碼';
-      showResult(false);
+      showResult();
     }, 1000);
   });
 
@@ -771,55 +899,53 @@
   });
 
   /* ---------- Step 4 ---------- */
-  // resultBtn 依畫面而定：「密碼已更新」(happy path C 的終點) 與「帳號阻斷」
-  // 都是流程終點，要真的連到登入頁；只有「驗證已逾時」可重試，回到步驟①
-  var resultBtnMode = 'success';   // success | demo-reset | blocked
-  function showResult(expired) {
-    stopValidityCountdown();   // 保險：不管從真倒數觸發還是 demo 按鈕直接跳進來，都確保停乾淨
-    // 逾時的是「驗證碼」本身（3 分鐘有效期，2026-08-04 定案，交易代碼那行的倒數就是它），
-    // 代表使用者卡在步驟②——驗證碼還沒送出成功就過期，不是走完②才逾時。
-    // stopAt:2 讓 stepper 停在②（不打勾），③維持未開始，別誤導成「驗證已通過」。
-    showStep(4, expired ? { expired: true, stopAt: 2 } : {});
-    resultHero.classList.remove('error');
-    resultHero.classList.toggle('warn', expired);
-    iconDone.style.display = expired ? 'none' : 'block';
-    iconWarn.style.display = expired ? 'block' : 'none';
+  /* resultBtn 依畫面而定：「密碼已更新」(happy path C 的終點) 與「帳號阻斷」
+     都是流程終點，要真的連到登入頁。
+
+     2026-08-05：這個函式原本還兼「驗證已逾時」那張結果頁（黃色時鐘），
+     已經移除——碼過期改成步驟②就地提示，不再把人推到結果頁。
+     結果頁現在只剩「密碼已更新」一種成功狀態。 */
+  var resultBtnMode = 'success';   // success | blocked
+  function showResult() {
+    stopValidityCountdown();   // 已離開步驟②，驗證碼有效時間不再相關
+    showStep(4);
+    resultHero.classList.remove('error', 'warn');
+    iconDone.style.display = 'block';
+    iconWarn.style.display = 'none';
     iconBlock.style.display = 'none';
-    if (expired) {
-      resultTitle.textContent = '驗證已逾時';
-      resultDesc.style.display = '';
-      resultDesc.innerHTML = '為了保護您的帳號，超過 <b>3 分鐘</b>未完成的驗證會自動失效，請重新開始。';
-      resultBtnLabel.textContent = '重新開始';
-      resultBtnMode = 'demo-reset';
-    } else {
-      resultTitle.textContent = '密碼已更新';
-      resultDesc.innerHTML = '';
-      resultDesc.style.display = 'none';
-      resultBtnLabel.textContent = '前往登入';
-      resultBtnMode = 'success';
-    }
+    resultTitle.textContent = '密碼已更新';
+    /* 2026-08-06：補上「其他裝置已登出」。
+       重設密碼會把其他裝置的登入狀態全部踢掉，這件事一定要講——
+       不講的話使用者下次拿手機發現被登出，會以為帳號出問題（客訴來源）；
+       講了則反過來是一個安全感訊號：如果密碼真的被盜用，這句話正好告訴他
+       「盜用者也一起被踢掉了」。
+       原本這個 desc 是空的、還被 display:none 藏起來 */
+    /* 2026-08-06 追加：連「信任設定」一起講。只清 session 不清信任裝置的話，
+       「懷疑被盜所以改密碼」的使用者，盜用者那台裝置還留在信任名單裡，
+       等於留了一扇免 2FA 的後門 */
+    resultDesc.textContent = '為了帳號安全，其他裝置的登入狀態與信任設定已全部清除，請使用新密碼重新登入。';
+    resultDesc.style.display = '';
+    resultBtnLabel.textContent = '前往登入';
+    resultBtnMode = 'success';
   }
 
-  /* 阻斷狀態：帳號狀態不符，流程無法繼續，只能請使用者找人協助。
+  /* 阻斷狀態：帳號已停用，流程無法繼續，只能請使用者找人協助。
      與「逾時」不同的是這裡沒有重試路徑，所以按鈕只給「返回登入」。
      2026-07-31 修正：務必在 OTP 驗證通過之後才觸發此頁——通過前若就透露
-     「這號碼的帳號已關閉／非母帳號」，等於沒驗證身份就洩漏帳號狀態，
+     「這號碼的帳號已停用」，等於沒驗證身份就洩漏帳號狀態，
      給攻擊者一個帳號列舉的管道，違背當初把忘記密碼／忘記帳號合併成
      單一 OTP 流程要防的事。stepper 因此比照「逾時」用預設 logical（不傳
      stopAt），呈現步驟①②已完成、卡在③之前，而不是卡在步驟①。
      2026-08-01：正式觸發點改成 doVerify() 裡的 PHONE_OUTCOMES（測試手機號
-     0900000002／0900000003），demo 狀態列的 s2-disabled／s2-notowner
-     兩顆按鈕保留給不想重跑一次 OTP 流程時的快速預覽用。 */
+     0900000002），demo 狀態列的 s2-disabled
+     那顆按鈕保留給不想重跑一次 OTP 流程時的快速預覽用。
+     2026-08-05：移除「非母帳號」分支——子帳號已可自行找回帳密，不再擋人，
+     這裡只剩「帳號已停用」一種阻斷理由。 */
   var BLOCKED = {
     disabled: {
-      // 2026-07-31：改成依入口各自的文案（子帳號版；母帳號版之後再補）。
       // 不用「母帳號」這個內部術語，一律講「您的帳號管理員」
-      title: '帳號權限已關閉',
-      desc: '此帳號目前無法重設密碼，如需重新啟用請聯繫您的帳號管理員。'
-    },
-    notOwner: {
-      title: '此號碼非母帳號',
-      desc: '您輸入的手機號碼非母帳號，請聯繫當初為您開通帳號的母帳號持有者，以協助查詢。'
+      title: '帳號已停用',
+      desc: '此帳號目前無法使用，如需重新啟用請聯繫您的帳號管理員。'
     }
   };
 
@@ -860,21 +986,26 @@
   function clearMsg(box) { box.classList.remove('show', 'error', 'warning'); }
 
   function resetStep1() {
-    phone.value = ''; captcha.value = '';
+    phone.value = '';
     phoneField.classList.remove('is-error', 'is-disabled');
-    captchaField.classList.remove('is-error', 'is-disabled');
     clearMsg(msg1Phone); clearMsg(msg1Captcha);
     sendBtn.disabled = true;
-    sendLabel.textContent = '發送驗證碼';
+    sendLabel.textContent = '發送驗證簡訊';
+    // demo 分支底下都是台灣測試號碼（0912638347 這類），回到步驟①一律重置回台灣，
+    // 不然上一輪若切過其他國家，這些寫死的號碼會被當成「其他國家」走寬鬆規則
+    resetCountrySelect();
+    applyPhoneMaxLen();
+    runTurnstile();   // 回到步驟①＝新的一輪，重新取得 token
   }
   function resetOtp() {
     otpAttemptsLeft = MAX_OTP_ATTEMPTS;
-    resendCount = 0;
     otpInputs.forEach(function (i) { i.value = ''; i.classList.remove('filled'); });
     otpRow.classList.remove('is-error', 'is-loading', 'is-disabled');
+    codeChoice.reset();   // 重新洗牌：這是新的一輪，代碼本來就該換位置
     clearMsg(msg2);
     verifyBtn.disabled = true;
     verifyLabel.textContent = '驗證';
+    clearLockedOnLoad();  // 這是「新的一輪」，不該殘留上一輪「已鎖定」的說明句/隱藏的引導句
     startValidityCountdown();
   }
   function resetPw() {
@@ -891,6 +1022,12 @@
   ['backToLogin1','backToLogin2'].forEach(function (id) {
     document.getElementById(id).addEventListener('click', function (e) { e.preventDefault(); });
   });
+  // 客服連結（鎖定訊息裡動態產生的 .js-support）：原型沒有實際去處，
+  // 用事件委派擋掉預設跳轉
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('.js-support');
+    if (a) e.preventDefault();
+  });
 
   /* ---------- demo 狀態切換 ---------- */
   var stateButtons = Array.prototype.slice.call(document.querySelectorAll('.state-bar button'));
@@ -902,31 +1039,25 @@
     clearInterval(timer);
     stopValidityCountdown();   // demo 切狀態前先停掉，避免舊倒數在背景繼續跑
 
-    if (s === 's1' || s === 's1-format' || s === 's1-captcha' || s === 's1-both') {
+    if (s === 's1' || s === 's1-format' || s === 's1-turnstile' || s === 's1-ts-interactive') {
       showStep(1); resetStep1();
       if (s === 's1-format') {
-        phone.value = '0912'; captcha.value = currentCaptchaAnswer;
+        phone.value = '0912';
         syncSendBtn();
         phoneField.classList.add('is-error');
         showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
       }
-      if (s === 's1-captcha') {
-        // 圖形驗證碼不涉及身分，可以明確講；只標紅驗證碼欄，不動手機欄
-        phone.value = '0912638347'; captcha.value = 'WRNG';
-        syncSendBtn();
-        captchaField.classList.add('is-error');
-        showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
-        refreshCaptcha1();
+      // Turnstile 失敗：訊息長在 widget 自己裡面（紅框），不標紅手機欄、
+      // 也不用我們自己的訊息行。發送鈕維持鎖住，等它重試通過
+      if (s === 's1-turnstile') {
+        phone.value = '0912638347';
+        setTurnstileState('error');
       }
-      if (s === 's1-both') {
-        // 手機格式與驗證碼同時錯：各欄下方各自報錯，不合併成一條
-        phone.value = '0912'; captcha.value = 'WRNG';
-        syncSendBtn();
-        phoneField.classList.add('is-error');
-        showMsg(msg1Phone, msg1PhoneText, 'error', '手機號碼格式錯誤，請重新輸入');
-        captchaField.classList.add('is-error');
-        showMsg(msg1Captcha, msg1CaptchaText, 'error', '驗證碼錯誤，請重新輸入');
-        refreshCaptcha1();
+      // Managed 模式判定需要真人互動：勾選框長在同一個 65px 框內，
+      // widget 不會變高、下方按鈕不會被推走
+      if (s === 's1-ts-interactive') {
+        phone.value = '0912638347';
+        setTurnstileState('interactive');
       }
       return;
     }
@@ -934,9 +1065,12 @@
     // 阻斷：務必在 OTP 驗證通過「之後」才查帳號狀態並顯示。
     // 通過前（步驟①）一律模糊回應，不透露帳號是否存在／狀態，避免帳號列舉攻擊。
     if (s === 's2-disabled') { showBlocked('disabled'); return; }
-    if (s === 's2-notowner') { showBlocked('notOwner'); return; }
 
-    if (s === 's2' || s === 's2-error' || s === 's2-locked' || s === 's2-daily') {
+    // 已鎖定、重新整理再進來：不走 resetOtp()（那是「新的一輪」的邏輯，
+    // 會重新洗牌、重新倒數），這裡要的是「一進站就是鎖著的」靜態畫面
+    if (s === 's2-locked-return') { showStep(2); showLockedOnLoad(); return; }
+
+    if (s === 's2' || s === 's2-error' || s === 's2-locked' || s === 's2-expired') {
       showStep(2); resetOtp();
       if (s === 's2') { startCountdown(56); otpInputs[0].focus(); }
       if (s === 's2-error') {
@@ -953,12 +1087,12 @@
         });
         showOtpError();
       }
-      if (s === 's2-daily') {
-        // 簡訊「發送」次數上限——跟上面 OTP「輸入」次數上限是兩件事，
-        // 這裡不動 otpRow／msg2，只有 resendRow 這個狀態區塊換掉
+      // 碼過期就地提示：說明句換成「驗證碼已失效」＋重發變可按，輸入框不鎖
+      if (s === 's2-expired') {
+        stopValidityCountdown();   // resetOtp() 剛啟動的倒數要先停掉，否則會把提示蓋回去
         clearInterval(timer);
-        resendCount = MAX_RESENDS;
-        renderResendRow('limited');
+        setExpired(true);
+        renderResendRow('ready');
       }
       return;
     }
@@ -976,8 +1110,7 @@
       return;
     }
 
-    if (s === 's4')          { showResult(false); return; }
-    if (s === 's4-expired')  { showResult(true);  return; }
+    if (s === 's4') { showResult(); return; }
   }
 
   stateButtons.forEach(function (btn) {
@@ -990,6 +1123,8 @@
   /* 起始狀態 */
   showStep(1);
   checkRules();
+  // 進頁面就開始跑 Turnstile（真的 widget 也是一載入就自動驗，不用使用者觸發）
+  runTurnstile();
   phone.focus();
 })();
 </script>
