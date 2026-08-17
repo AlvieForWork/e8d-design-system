@@ -413,16 +413,18 @@
   // demo 帳密：跟欄位預設值一致，不改內容直接按登入就會成功
   var DEMO_PASSWORD = 'Emma88888';
   /* 帳密都對，但帳號狀態不同，讓 PM 不必靠 demo 狀態列也能真的打帳密觸發：
-       emma           → 正常
+       emma           → 正常（要走完整簡訊驗證頁，當「沒信任裝置」對照組）
        emma_disabled  → 帳號已停用（管理員關閉）
        emma_locked    → 帳號已鎖定（錯太多次被鎖，等人工解鎖）
+       emma_trusted   → 已信任此裝置（demo 模擬信任裝置狀態，實際判斷待後端；
+                         帳密通過後跳過簡訊驗證頁，直接登入成功進平台）
 
      ⚠️ locked 與 disabled 是兩件事，畫面也不同：
         停用＝管理員關的，要找「帳號管理員」；鎖定＝自己錯太多次，要找「客服」。
      ⚠️ emma_locked 代表的是「鎖定之後隔天／重整再來登入」——
         這時帳密就算打對也不放行，而且訊息不能再講「錯誤次數過多」
         （那是在講上一次的事，隔天再來看到會覺得莫名其妙）。 */
-  var ACCOUNT_STATUS = { emma: 'ok', emma_disabled: 'disabled', emma_locked: 'locked' };
+  var ACCOUNT_STATUS = { emma: 'ok', emma_disabled: 'disabled', emma_locked: 'locked', emma_trusted: 'trusted' };
 
   // demo 用：靜態原型沒有後端能真的判斷「這個帳號是不是第一次登入」，
   // 用這顆獨立開關模擬分岔，決定登入成功後走 happy path A（一般）還是 B（首次）
@@ -490,6 +492,12 @@
       if (accountStatus === 'locked') {
         setState('locked');
         syncStateBar('locked');
+        return;
+      }
+      // 已信任此裝置：demo 模擬信任裝置狀態，實際判斷（記住裝置、30 天有效期）待後端。
+      // 帳密通過後直接跳過簡訊驗證頁（2FA），視同已完成完整登入
+      if (accountStatus === 'trusted') {
+        window.location.href = 'https://alvieforwork.github.io/e8d-nav-prototype/';
         return;
       }
       // 帳密＋驗證碼都通過：依 demo 開關決定 happy path A 或 B
