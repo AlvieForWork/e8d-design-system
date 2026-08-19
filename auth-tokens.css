@@ -1004,6 +1004,13 @@ body {
 .result-hero.warn .circle::before { background: var(--warning-600); }
 .result-hero.error .circle,
 .result-hero.error .circle::before { background: var(--error-600); }
+/* 2026-08-19：補 info 變體。忘記密碼流程新增「驗證成功但查無此號碼的帳號」——
+   使用者什麼都沒做錯，不是 error（已經出事）也不是 warning（再一步就出事），
+   語意是「查無結果＋引導」。info 這層語意 token 早就有（--text-info 用在登入頁的
+   Session 逾時、.callout-info 用 --info-200），只有 result-hero 還沒接上，
+   因為在這之前沒有中性結果的情境。這裡沿用既有的 --info-600，沒有新色。 */
+.result-hero.info .circle,
+.result-hero.info .circle::before { background: var(--info-600); }
 
 .result-hero .circle svg,
 .done-hero .circle svg { position: relative; z-index: 1; }
@@ -1028,6 +1035,21 @@ body {
 }
 .result-hero p b,
 .done-hero p b { color: var(--text-primary); font-weight: var(--fw-semi); }
+/* 說明文字裡的行內連結（例：查無帳號頁的「聯絡客服」）。
+   結果頁的 p 是灰字，若比照 .form-alert a 用 color: inherit 會整個埋進灰底文字裡
+   看不出可點，所以用既有的 --text-link（= --info-600，跟卡片內其他 .link 同一支）。 */
+.result-hero p a,
+.done-hero p a {
+  /* Alvie 2026-08-19：粗體、無底線、Info 600。
+     字重用 bold(700) 不是 semi(600)——這行說明是 14px 的灰字，連結要在裡面
+     一眼被認出來，600 在小字級下跟內文差距不夠。底線一律不加，跟站上其他
+     行內連結（.form-alert a／.subtitle .locked a）的慣例一致。 */
+  color: var(--text-link); font-weight: var(--fw-bold);
+  text-decoration: none; cursor: pointer;
+  transition: color .12s ease;
+}
+.result-hero p a:hover,
+.done-hero p a:hover { color: var(--info-700); }
 
 /* 結果頁底下的補充提示（一行、置中、圖示同色系）→ 主按鈕 */
 .result-note {

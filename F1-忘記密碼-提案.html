@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F1 忘記密碼／找回帳號 — 提案</title>
-<link rel="stylesheet" href="auth-tokens.css?v=20260807e">
+<link rel="stylesheet" href="auth-tokens.css?v=20260819a">
 <script src="demo-mode.js?v=20260801"></script>
 <!-- 這頁的 OTP 主邏輯是自己一套（歷史因素），載入 otp-shared.js 只為了共用
      initCodeChoice()——不呼叫 initOtpVerifier() 就不會有其他副作用 -->
@@ -364,6 +364,11 @@
             <svg id="iconBlock" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
               <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
+            <!-- 查無帳號（Lucide: search-x）：語意是「找過了、沒找到」，
+                 不用驚嘆號那顆——使用者沒做錯任何事，不該被當成錯誤看待 -->
+            <svg id="iconNoAccount" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/>
+            </svg>
           </div>
           <h1 id="resultTitle">密碼已更新</h1>
           <p id="resultDesc"></p>
@@ -394,6 +399,7 @@
   <button data-state="s2-locked-return">已鎖定（重整後）</button>
   <button data-state="s2-expired">驗證碼已失效</button>
   <button data-state="s2-disabled">通過後：帳號已停用</button>
+  <button data-state="s2-noaccount">通過後：查無帳號</button>
   <span class="sep"></span>
   <span class="tag">③ 新密碼</span>
   <button data-state="s3">預設</button>
@@ -595,6 +601,7 @@
   /* 驗證代碼四選一：跟另外兩頁同一份 initCodeChoice()。選完代碼要回頭叫
      recheck()，否則「先填滿六格、後選代碼」不會自動變成可送出；
      順手把游標接到第一個還沒填的格子，省使用者再點一次輸入框 */
+  var iconNoAccount = document.getElementById('iconNoAccount');
   var otp;
   var codeChoice = initCodeChoice({
     row: document.getElementById('codeChoiceRow'),
@@ -608,7 +615,8 @@
      key 用正規化後的 9 碼版本（去掉開頭 0）—— onSuccess 一律用正規化過的號碼
      查表，使用者不論打 0900000002 還是 900000002 都要能對上同一筆 */
   var PHONE_OUTCOMES = {
-    '900000002': 'disabled'
+    '900000002': 'disabled',
+    '900000003': 'noaccount'
   };
 
   otp = initOtpVerifier({
@@ -765,11 +773,31 @@
      那顆按鈕保留給不想重跑一次 OTP 流程時的快速預覽用。
      2026-08-05：移除「非母帳號」分支——子帳號已可自行找回帳密，不再擋人，
      這裡只剩「帳號已停用」一種阻斷理由。 */
+  /* tone 決定 result-hero 的圓圈語意色，icon 決定圓圈裡放哪顆圖。
+     2026-08-19 新增 noaccount 之後這裡不再只有 error 一種調性，所以把
+     色與圖從 showBlocked() 的寫死改成資料的一部分。 */
   var BLOCKED = {
     disabled: {
+      tone: 'error', icon: 'block',
       // 不用「母帳號」這個內部術語，一律講「您的帳號管理員」
       title: '帳號已停用',
       desc: '此帳號目前無法使用，如需重新啟用請聯繫您的帳號管理員。'
+    },
+    /* 驗證成功、但這支門號查不到綁定的帳號（2026-08-19 新增）。
+       ⚠️ 這裡刻意「明確告知」而非模糊回應：使用者已經通過這支門號的簡訊驗證、
+          證明是本人持有，不存在帳號列舉的資安疑慮，講清楚才是最友善的做法。
+          （步驟①還沒驗證前的任何回應仍然必須模糊，兩者不衝突。）
+       ⚠️ 沒有「立即申請帳號」CTA：E8D 帳號由專人開通，使用者自己申請不了，
+          給一顆點了沒用的按鈕比不給更糟（Alvie 2026-08-19 更正）。
+       號碼保留遮罩回顯，不是為了防列舉，是讓打錯號碼的人當場發現自己驗錯支。 */
+    noaccount: {
+      /* tone 留空＝用 .result-hero 的預設圓圈色（綠）。
+         Alvie 2026-08-19 兩版都看過後定案：藍色版本試出來太搶，維持原本的綠。
+         這裡的綠是視覺上的中性大圓，不是在宣告「成功」——真正分辨這頁的是
+         標題、icon（search-x）與說明文字。 */
+      tone: null, icon: 'noaccount',
+      title: '此號碼尚未註冊帳號',
+      desc: '我們查不到與 <b>0912****347</b> 綁定的帳號。EVERY8D 帳號需由專人開通，請<a href="#" class="js-support">聯絡客服</a>協助確認。'
     }
   };
 
@@ -778,14 +806,17 @@
     otp.stopResendTimer();
     var c = BLOCKED[kind];
     showStep(4, { blocked: true });   // 步驟①②已完成、③未達成，不可全打勾
-    resultHero.classList.remove('warn');
-    resultHero.classList.add('error');
-    iconDone.style.display  = 'none';
-    iconWarn.style.display  = 'none';
-    iconBlock.style.display = 'block';
+    resultHero.classList.remove('warn', 'error', 'info');
+    if (c.tone) resultHero.classList.add(c.tone);   // tone 為 null＝維持預設圓圈色
+    iconDone.style.display      = 'none';
+    iconWarn.style.display      = 'none';
+    iconBlock.style.display     = c.icon === 'block' ? 'block' : 'none';
+    iconNoAccount.style.display = c.icon === 'noaccount' ? 'block' : 'none';
     resultTitle.textContent = c.title;
     resultDesc.style.display = '';
-    resultDesc.textContent = c.desc;
+    resultDesc.innerHTML = c.desc;   // desc 可含 <b>／行內連結（客服）
+    // 兩種阻斷的出口都一樣是回登入頁：停用要找管理員、查無帳號要找客服，
+    // 兩者都不是這個流程裡能解決的事，這頁只負責把人送回起點
     resultBtnLabel.textContent = '返回登入';
     resultBtnMode = 'blocked';
   }
@@ -879,6 +910,7 @@
     // 阻斷：務必在 OTP 驗證通過「之後」才查帳號狀態並顯示。
     // 通過前（步驟①）一律模糊回應，不透露帳號是否存在／狀態，避免帳號列舉攻擊。
     if (s === 's2-disabled') { showBlocked('disabled'); return; }
+    if (s === 's2-noaccount') { showBlocked('noaccount'); return; }
 
     // 已鎖定、重新整理再進來：不走 otp.reset()（那是「新的一輪」的邏輯，
     // 會重新洗牌、重新倒數），這裡要的是「一進站就是鎖著的」靜態畫面。
