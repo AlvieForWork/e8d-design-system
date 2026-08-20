@@ -8,7 +8,7 @@
 <script src="demo-mode.js?v=20260801"></script>
 <!-- 這頁的 OTP 主邏輯是自己一套（歷史因素），載入 otp-shared.js 只為了共用
      initCodeChoice()——不呼叫 initOtpVerifier() 就不會有其他副作用 -->
-<script src="otp-shared.js?v=20260806s"></script>
+<script src="otp-shared.js?v=20260820b"></script>
 <!-- 國碼清單：只有這頁需要選國家（其他頁的手機號是系統帶入，不用使用者自己選） -->
 <script src="country-codes.js?v=20260807"></script>
 <style>
@@ -208,7 +208,9 @@
         <!-- 2026-08-06：三個 OTP 頁標題統一成「簡訊驗證」（完整理由寫在
              F1-2FA驗證頁-提案.html 的同一處註解）。原本這裡是「輸入驗證碼」，
              除了跟另兩頁不一致，還跟上方 stepper 的「驗證碼」重複 -->
-        <h1>簡訊驗證</h1>
+        <!-- 2026-08-20：標題「簡訊驗證」→「身分驗證」（SafeSay 兩條取碼路徑，
+             完整理由寫在 F1-2FA驗證頁-提案.html 的同一處註解） -->
+        <h1>身分驗證</h1>
 
         <!-- 這頁原本說明區是空的，2026-08-04 補上跟另兩頁一致的說明句；
              有效時間串進同一句、同一行，不另起一行。
@@ -220,7 +222,9 @@
         <!-- 引導句包進 #guideLine：鎖定狀態要整段收起來（沒有碼可以取，
              留著只會叫使用者去做一件做不到的事）——跟 F1-2FA驗證頁-提案.html 同做法 -->
         <p class="subtitle">
-          <span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span>
+          <!-- 2026-08-20：副標改成涵蓋 SafeSay 兩種取碼方式（完整理由寫在
+               F1-2FA驗證頁-提案.html 的同一處註解），三頁逐字一致 -->
+          <span class="validity" id="validityWrap"><span class="normal">已發送驗證至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請透過 <b>SafeSay</b> 取得英文代碼與驗證碼（已安裝將自動開啟，未安裝請點簡訊連結）：</span>
         </p>
 
         <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
@@ -451,6 +455,7 @@
   var iconDone    = document.getElementById('iconDone');
   var iconWarn    = document.getElementById('iconWarn');
   var iconBlock   = document.getElementById('iconBlock');
+  var iconNoAccount = document.getElementById('iconNoAccount');
 
   /* 2026-08-07：輸入行為／輸錯鎖定／重發兩態／有效時間倒數，改用共用模組
      （otp-shared.js 的 initOtpVerifier()），跟另外兩個 OTP 頁（日常登入、
@@ -601,7 +606,6 @@
   /* 驗證代碼四選一：跟另外兩頁同一份 initCodeChoice()。選完代碼要回頭叫
      recheck()，否則「先填滿六格、後選代碼」不會自動變成可送出；
      順手把游標接到第一個還沒填的格子，省使用者再點一次輸入框 */
-  var iconNoAccount = document.getElementById('iconNoAccount');
   var otp;
   var codeChoice = initCodeChoice({
     row: document.getElementById('codeChoiceRow'),
@@ -650,7 +654,7 @@
 
      這跟共用模組 lockNow()（當場錯滿那一刻，showError() 觸發）不是同一件事：
      那一刻有抖動動畫、有剛扣掉的次數；重整回來則是靜靜地一進站就鎖著，而且
-     **系統沒有再發簡訊**——所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」
+     **系統沒有再發簡訊**——所以說明句要從「已發送驗證至…，有效時間 NNN 秒」
      換成「錯誤次數過多，請聯絡客服」，引導句整段收起來，重發那行清空
      （不清的話重整一次就能多送一則簡訊）。跟另外兩個 OTP 頁的
      showLockedOnLoad() 同一個做法：otp.lock() 已經處理輸入框停用／四選一
@@ -742,9 +746,15 @@
     otp.stopResendTimer();
     showStep(4);
     resultHero.classList.remove('error', 'warn');
-    iconDone.style.display = 'block';
-    iconWarn.style.display = 'none';
-    iconBlock.style.display = 'none';
+    /* ⚠️ 結果頁圓圈裡四顆 icon 疊在同一個位置，切換時**每一顆都要明確指定**，
+       漏掉哪一顆，上一個狀態的圖就會留在畫面上跟這次的疊在一起。
+       2026-08-20 修：iconNoAccount 是 8/19 新增的，當時只加進 showBlocked()，
+       這裡忘了關，於是「查無帳號 → 密碼已更新」會變成打勾＋放大鏡兩顆同框。
+       之後再加新 icon，這裡與 showBlocked() 兩處都要補 */
+    iconDone.style.display      = 'block';
+    iconWarn.style.display      = 'none';
+    iconBlock.style.display     = 'none';
+    iconNoAccount.style.display = 'none';
     resultTitle.textContent = '密碼已更新';
     /* 2026-08-06：補上「其他裝置已登出」。
        重設密碼會把其他裝置的登入狀態全部踢掉，這件事一定要講——

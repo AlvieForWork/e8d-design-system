@@ -332,17 +332,19 @@ function initOtpVerifier(opts) {
      那個在 showError() 裡，完整保留。 */
   function renderResendRow(state, sec) {
     if (state === 'counting') {
-      resendRow.innerHTML = '沒收到簡訊？<span class="countdown">' + sec + '</span> 秒後可重新發送';
+      resendRow.innerHTML = '沒收到驗證？<span class="countdown">' + sec + '</span> 秒後可重新發送';
       return;
     }
     if (state === 'ready') {
       resendRow.innerHTML =
-        '沒收到簡訊？<button class="resend-btn" type="button" id="' + resendBtnId + '">' +
+        '沒收到驗證？<button class="resend-btn" type="button" id="' + resendBtnId + '">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>' +
-          // 接 SafeSay 後發出去的是「一則帶連結的簡訊」，不是驗證碼本身，
-          // 說明句已經改成「請點簡訊中的連結」，這顆鈕再講「重新發送驗證碼」會自相矛盾
-          '重新發送簡訊</button>';
+          // 2026-08-20：受詞整個拿掉，只留「重新發送」。SafeSay 有兩條取碼路徑——
+          // 裝了 App 的人是 App 自動開啟、根本收不到簡訊，說「重新發送簡訊」對他們是錯的；
+          // 講「重新發送驗證碼」也不對（送出去的不是碼本身）。不帶受詞兩條路都成立，
+          // 也跟上面那句「沒收到驗證？」對得起來
+          '重新發送</button>';
       document.getElementById(resendBtnId).addEventListener('click', function () {
         resendRow.innerHTML =
           '<span class="resend-sent">' +

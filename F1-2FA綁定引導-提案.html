@@ -6,7 +6,7 @@
 <title>F1 首次登入：2FA 綁定引導 — 提案</title>
 <link rel="stylesheet" href="auth-tokens.css?v=20260819a">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260806s"></script>
+<script src="otp-shared.js?v=20260820b"></script>
 <style>
 
   /* ---------- 左側：資安意象 ---------- */
@@ -202,7 +202,9 @@
         <!-- 2026-08-06：三個 OTP 頁標題統一成「簡訊驗證」（完整理由寫在
              F1-2FA驗證頁-提案.html 的同一處註解）。原本這裡是「驗證您的手機號碼」，
              「這一步在綁手機」這個資訊由上方 stepper 的「驗證手機」負責，沒有丟失 -->
-        <h1>簡訊驗證</h1>
+        <!-- 2026-08-20：標題「簡訊驗證」→「身分驗證」（SafeSay 兩條取碼路徑，
+             完整理由寫在 F1-2FA驗證頁-提案.html 的同一處註解） -->
+        <h1>身分驗證</h1>
         <!-- 2026-08-04 四度調整：這頁進來時簡訊已經自動發送、畫面已在倒數，
              原本「請確認號碼正確」是發送前語氣，跟已經在跑的倒數矛盾，改成
              「已發送」語氣；有效時間併進同一句，不再獨立一行。
@@ -216,7 +218,9 @@
              故補上受詞「已發送簡訊」＋補上「點簡訊中的連結」這一步。
              ⚠️ 180 只是佔位，實際值由 otp-shared.js 的 OTP_VALIDITY_SEC 填入 -->
         <!-- 引導句包進 #guideLine：鎖定狀態要整段收起來，跟另外兩頁同做法 -->
-        <p class="subtitle"><span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span></p>
+        <!-- 2026-08-20：副標改成涵蓋 SafeSay 兩種取碼方式（完整理由寫在
+             F1-2FA驗證頁-提案.html 的同一處註解），三頁逐字一致 -->
+        <p class="subtitle"><span class="validity" id="validityWrap"><span class="normal">已發送驗證至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請透過 <b>SafeSay</b> 取得英文代碼與驗證碼（已安裝將自動開啟，未安裝請點簡訊連結）：</span></p>
 
         <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
              選項由 otp-shared.js 的 initCodeChoice() 產生並每次洗牌，三頁共用同一份 -->

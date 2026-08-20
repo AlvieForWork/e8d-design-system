@@ -6,7 +6,7 @@
 <title>F1 2FA 簡訊驗證頁 — 提案</title>
 <link rel="stylesheet" href="auth-tokens.css?v=20260819a">
 <script src="demo-mode.js?v=20260801"></script>
-<script src="otp-shared.js?v=20260806s"></script>
+<script src="otp-shared.js?v=20260820b"></script>
 <style>
 
   /* 表單／驗證已逾時互斥切換 */
@@ -132,7 +132,12 @@
            「去看簡訊」，所以講管道依然準確。
            ⚠️ 語序不可寫成「驗證簡訊」——那讀起來是名詞（一封簡訊），
               「簡訊驗證」才是「透過簡訊驗證」的動作語氣 -->
-      <h1>簡訊驗證</h1>
+      <!-- 2026-08-20：標題「簡訊驗證」→「身分驗證」。SafeSay 有兩條取碼路徑——
+           裝了 SafeSay App 的人是 App 自動開啟、直接在聊天室收到代碼與驗證碼，
+           沒裝的才會收到帶連結的簡訊去領——講「簡訊驗證」只涵蓋其中一條，
+           對裝了 App 的人是錯的。改講這件事的目的（驗證是本人）而非管道，兩條路都成立。
+           ⚠️ 三個 OTP 頁必須同步，不可只改一頁 -->
+      <h1>身分驗證</h1>
       <!-- 有效時間串進同一句、同一行，不再另起一行。
            #validitySec 這個節點不可被 innerHTML 整段重寫——otp-shared.js 啟動時
            只抓過一次參照，重建的話倒數會更新到「已經不在畫面上」的舊節點，
@@ -146,7 +151,12 @@
            OTP_VALIDITY_SEC 填入，要調秒數改那裡就好 -->
       <!-- 引導句連同它前面的 <br> 一起包進 #guideLine：鎖定狀態要整段收起來
            （沒有碼可以取，留著那句只會叫使用者去做一件做不到的事） -->
-      <p class="subtitle" id="cardSubtitle"><span class="validity" id="validityWrap"><span class="normal">已發送簡訊至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請點簡訊連結，於 <b>SafeSay</b> 取得英文代碼與驗證碼：</span></p>
+      <!-- 2026-08-20 SafeSay 兩種取碼方式：「已發送簡訊至」→「已發送驗證至」
+           （裝了 App 的人收到的不是簡訊，說「簡訊」等於講錯管道）；
+           引導句改成一次把兩條路講完：「請透過 SafeSay 取得英文代碼與驗證碼
+           （已安裝將自動開啟，未安裝請點簡訊連結）：」。
+           ⚠️ 三頁的標題／副標／「沒收到驗證？」必須逐字一致 -->
+      <p class="subtitle" id="cardSubtitle"><span class="validity" id="validityWrap"><span class="normal">已發送驗證至 <b>0912****347</b>，有效時間 <b id="validitySec">180</b> 秒。</span><span class="expired">驗證碼已失效，請重新發送。</span><span class="locked">錯誤次數過多，請<a href="#" class="js-support">聯絡客服</a>協助解鎖</span></span><span id="guideLine"><br>請透過 <b>SafeSay</b> 取得英文代碼與驗證碼（已安裝將自動開啟，未安裝請點簡訊連結）：</span></p>
 
       <!-- 驗證代碼四選一（2026-08-05）：從四個裡挑出簡訊上收到的那一組。
            選項由 otp-shared.js 的 initCodeChoice() 產生並每次洗牌，三頁共用同一份 -->
@@ -291,7 +301,7 @@
 
      這跟「當場錯滿第 3 次」不是同一件事：那一刻有抖動動畫、有剛扣掉的次數；
      重整回來則是靜靜地一進站就鎖著，而且**系統沒有再發簡訊**——
-     所以說明句要從「已發送簡訊至…，有效時間 NNN 秒」換成「此帳號的簡訊驗證已鎖定」，
+     所以說明句要從「已發送驗證至…，有效時間 NNN 秒」換成「此帳號的簡訊驗證已鎖定」，
      引導句整段收起來，重發那行清空（不清的話重整一次就能多送一則簡訊）。
 
      真實系統靠後端查帳號的鎖定狀態；原型沒有後端，用網址 ?locked=1 模擬。
@@ -305,7 +315,7 @@
     guideLine.style.display = 'none';
     /* 下方那條紅色錯誤訊息要收掉——說明句已經把「錯太多次、鎖了、怎麼辦」
        三件事一次講完，留著等於同一件事講兩次，而且一張卡片出現兩段紅字太重。
-       （當場錯滿那一刻不一樣：那時說明句還是「已發送簡訊至…」，
+       （當場錯滿那一刻不一樣：那時說明句還是「已發送驗證至…」，
         錯誤訊息是唯一在講鎖定的地方，必須留著） */
     errorMsg.classList.remove('show', 'error');
   }
